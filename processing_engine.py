@@ -105,6 +105,21 @@ def _is_ocr_needed(pdf_path):
         return True
 
 def map_to_servicenow_format(extracted_data, filename):
-    # This function is complete and correct from previous versions
-    # ... (code for this function remains the same)
-    pass
+    """Map raw extracted fields to the ServiceNow Excel headers."""
+
+    record = {}
+    for src_key, header in HEADER_MAPPING.items():
+        if src_key == "file_name":
+            record[header] = filename
+        else:
+            record[header] = extracted_data.get(src_key, "")
+
+    if not record.get(HEADER_MAPPING["author"]):
+        record[HEADER_MAPPING["author"]] = STANDARDIZATION_RULES["default_author"]
+
+    if not record.get(HEADER_MAPPING["processing_status"]):
+        record[HEADER_MAPPING["processing_status"]] = (
+            "Needs Review" if extracted_data.get("needs_review") else "Success"
+        )
+
+    return record
