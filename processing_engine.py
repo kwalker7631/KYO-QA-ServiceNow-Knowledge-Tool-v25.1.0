@@ -6,7 +6,14 @@ from pathlib import Path
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from logging_utils import setup_logger, log_info, log_error, log_warning
+from logging_utils import (
+    setup_logger,
+    log_info,
+    log_error,
+    log_warning,
+    create_success_log,
+    create_failure_log,
+)
 from custom_exceptions import *
 from file_utils import get_temp_dir, cleanup_temp_files, is_pdf, is_zip, save_txt, is_file_locked
 from ocr_utils import extract_text_from_pdf
@@ -93,6 +100,12 @@ def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb,
     if updated_count > 0:
         df.to_excel(kb_filepath, index=False, engine='openpyxl')
         log_info(logger, f"Successfully saved {updated_count} updated records to {kb_filepath}")
+
+    summary = f"{updated_count} record(s) updated, {failed_count} file(s) failed."
+    if failed_count:
+        create_failure_log(summary, "See session log for details")
+    else:
+        create_success_log(summary)
 
     return kb_filepath, updated_count, failed_count
 
