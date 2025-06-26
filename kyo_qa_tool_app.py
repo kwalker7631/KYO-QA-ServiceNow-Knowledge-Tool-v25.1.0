@@ -190,6 +190,7 @@ class MainWindow(QMainWindow):
 
     def update_status(self, category, message):
         self.feedback_label.setText(message)
+        self.log_message(message)
 
     def handle_error(self, title, message):
         logger.error(f"{title}: {message}", exc_info=True); self.log_message(f"ERROR: {message}")
