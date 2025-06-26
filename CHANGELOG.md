@@ -1,4 +1,7 @@
-		  # CHANGELOG
+# CHANGELOG
+
+## v25.0.0 (2025-06-26)
+- Updated docs and launcher script to sync version numbers with code base.
 
 ## v24.0.1 (2024-06-20)
 - Refactored to fully modular, maintainable codebase with clear separation of GUI, OCR, AI extraction, file handling, and Excel output.
