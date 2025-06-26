@@ -99,7 +99,7 @@ def update_version(old_version, new_version):
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python update_version.py old_version new_version")
-        print("Example: python update_version.py v24.0.1 v24.0.2")
+        print("Example: python update_version.py v25.0.0 v25.0.1")
         sys.exit(1)
         
     old_version = sys.argv[1]
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # Validate version format
     if not re.match(r'^v\d+\.\d+\.\d+$', old_version) or not re.match(r'^v\d+\.\d+\.\d+$', new_version):
         print("Error: Version numbers must be in the format vYY.Minor.Patch")
-        print("Example: v24.0.1")
+        print("Example: v25.0.0")
         sys.exit(1)
         
     update_version(old_version, new_version)
