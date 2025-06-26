@@ -34,4 +34,19 @@ SUBJECT_PATTERNS = [
 CHANGE_TYPE_PATTERNS = [
     r"Type\s+of\s+change[:\s\n]*.*?(Hardware|Firmware\s+and\s+Software|Information)"
 ]
+
+# Regex patterns for extracting published dates from text.
+DATE_PATTERNS = [
+    r"\d{4}[/-]\d{1,2}[/-]\d{1,2}",  # 2025-06-26 or 2025/06/26
+    r"\d{1,2}[/-]\d{1,2}[/-]\d{4}",  # 06/26/2025 or 6-26-2025
+    r"\d{1,2}\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d{4}",
+    r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d{1,2},?\s*\d{4}",
+]
+
+# Patterns to help identify software bulletins.
+APP_SOFTWARE_PATTERNS = {
+    "keywords": r"\b(?:software|application|app)\b",
+    "version": r"(?:version|ver\.?|v)\s*\d+(?:\.\d+)*",
+}
+
 STANDARDIZATION_RULES = {"default_author": "Knowledge Import"}
