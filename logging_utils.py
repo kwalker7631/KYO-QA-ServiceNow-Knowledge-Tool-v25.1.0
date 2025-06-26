@@ -6,6 +6,29 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from version import VERSION
 
+
+class QtWidgetHandler(logging.Handler):
+    """Handler to append log messages to a QTextEdit widget."""
+
+    def __init__(self, text_edit):
+        super().__init__()
+        self.text_edit = text_edit
+        try:
+            from PySide6 import QtCore
+            self._invoker = lambda msg: QtCore.QMetaObject.invokeMethod(
+                self.text_edit,
+                "append",
+                QtCore.Qt.QueuedConnection,
+                QtCore.Q_ARG(str, msg),
+            )
+        except Exception:
+            # Fallback: direct call if PySide6 not available
+            self._invoker = lambda msg: self.text_edit.append(msg)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        msg = self.format(record)
+        self._invoker(msg)
+
 # Define Log Directory correctly relative to the project folder
 LOG_DIR = Path.cwd() / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -13,8 +36,8 @@ LOG_DIR.mkdir(exist_ok=True)
 SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
 ERROR_LOG_FILE = LOG_DIR / "error.log"
 
-def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
-    """Sets up loggers with handlers for session logging and error logging."""
+def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logger:
+    """Sets up loggers with handlers for session, error, console, and optional GUI logging."""
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)-8s] [%(name)-20s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
@@ -43,6 +66,14 @@ def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
         root_logger.addHandler(console_handler)
 
         root_logger.info(f"Logging initialized. Session: {SESSION_LOG_FILE} | Errors: {ERROR_LOG_FILE}")
+
+    if log_widget:
+        # Avoid adding duplicate GUI handlers for the same widget
+        if not any(isinstance(h, QtWidgetHandler) and getattr(h, "text_edit", None) is log_widget for h in root_logger.handlers):
+            gui_handler = QtWidgetHandler(log_widget)
+            gui_handler.setFormatter(formatter)
+            gui_handler.setLevel(level)
+            root_logger.addHandler(gui_handler)
 
     return logging.getLogger(name)
 

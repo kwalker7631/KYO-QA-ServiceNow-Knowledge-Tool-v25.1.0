@@ -90,6 +90,8 @@ class MainWindow(QMainWindow):
         self.result_file_path = None
         self._setup_window_and_widgets()
         self.setStyleSheet(STYLESHEET)
+        # Register GUI log handler now that the text edit widget exists
+        setup_logger("app_ui", log_widget=self.log_text_edit)
 
     def _setup_window_and_widgets(self):
         self.setWindowTitle(f"Kyocera QA ServiceNow Knowledge Tool v{VERSION}")
