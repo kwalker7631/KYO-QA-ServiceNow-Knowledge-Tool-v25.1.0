@@ -9,7 +9,7 @@
 
 ### 2. Folder Structure
 KYO_QA_ServiceNow_Knowledge_Tool_v25.0.0/
-├── run_tool.bat
+├── START.bat
 ├── start_tool.py
 ├── requirements.txt
 ├── README.md
@@ -36,7 +36,7 @@ This tool extracts model info, QA/SB numbers, and descriptions from Kyocera QA/s
 
 | File                | Description                                  |
 |---------------------|----------------------------------------------|
-| `run_tool.bat`      | One-click Windows launcher                   |
+| `START.bat`         | One-click Windows launcher                   |
 | `start_tool.py`     | Initializes environment and starts tool      |
 | `requirements.txt`  | Lists Python dependencies                    |
 | `README.md`         | Setup instructions and usage guide           |
@@ -90,7 +90,7 @@ This tool extracts model info, QA/SB numbers, and descriptions from Kyocera QA/s
 ### 3. Setup Steps
 1. Place all files above in a single folder.
 2. Install Python 3.11.x and Tesseract OCR.
-3. Double-click `run_tool.bat` (Windows) or run `python start_tool.py`
+3. Double-click `START.bat` (Windows) or run `python start_tool.py`
    - The tool will set up its virtual environment and auto-install requirements.
     - Logs and output are saved in `/logs/` and `/output/` folders.
 
