@@ -6,26 +6,26 @@ import re
 from datetime import datetime
 import sys
 
-def update_version(old_version, new_version):
+# Files that should have the version string updated
+FILES_TO_UPDATE = [
+    "version.py",
+    "ai_extractor.py",
+    "custom_exceptions.py",
+    "data_harvesters.py",
+    "excel_generator.py",
+    "file_utils.py",
+    "kyo_qa_tool_app.py",
+    "logging_utils.py",
+    "ocr_utils.py",
+    "processing_engine.py",
+    "README.md",
+    "start_tool.py",
+    "START.bat",
+]
+
+def update_version(old_version, new_version, files_to_update=FILES_TO_UPDATE):
     """Update the version number in all files."""
     print(f"Updating version from {old_version} to {new_version}")
-    
-    # List of files to update
-    files_to_update = [
-        "version.py",
-        "ai_extractor.py",
-        "custom_exceptions.py",
-        "data_harvesters.py",
-        "excel_generator.py",
-        "file_utils.py",
-        "kyo_qa_tool_app.py",
-        "logging_utils.py",
-        "ocr_utils.py",
-        "processing_engine.py",
-        "README.md",
-        "start_tool.py",
-        "run_tool.bat"
-    ]
     
     # Regular expressions for updating different file types
     version_patterns = {
