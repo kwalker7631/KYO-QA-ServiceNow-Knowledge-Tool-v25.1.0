@@ -76,7 +76,12 @@ class ExcelWriter:
 
     def save(self):
         """Applies final styling and saves the workbook."""
-        finalize_styles(self.sheet)
+        try:
+            finalize_styles(self.sheet)
+        except Exception as e:
+            # Log but continue so saving still runs
+            log_error(logger, f"Failed applying final Excel styles: {e}")
+
         try:
             self.workbook.save(self.filepath)
             log_info(logger, f"Successfully saved Excel file to {self.filepath}")
