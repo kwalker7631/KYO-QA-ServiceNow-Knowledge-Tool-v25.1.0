@@ -1,7 +1,5 @@
 # KYO QA ServiceNow File Utilities
-from version import VERSION
 import config
-
 import os
 import shutil
 import time
@@ -57,12 +55,12 @@ def cleanup_temp_files(directory=None):
     """Clean up temporary files."""
     if directory is None:
         directory = get_temp_dir()
-    
+
     try:
         # Remove files older than 1 day
         now = datetime.now().timestamp()
         count = 0
-        
+
         for item in Path(directory).glob("**/*"):
             if item.is_file():
                 file_age = now - item.stat().st_mtime
@@ -72,7 +70,7 @@ def cleanup_temp_files(directory=None):
                         count += 1
                     except Exception as e:
                         log_warning(logger, f"Could not delete {item}: {e}")
-        
+
         # Remove empty directories
         for root, dirs, files in os.walk(directory, topdown=False):
             for dir_name in dirs:
@@ -82,7 +80,7 @@ def cleanup_temp_files(directory=None):
                         dir_path.rmdir()
                 except Exception as e:
                     log_warning(logger, f"Could not remove directory {dir_path}: {e}")
-        
+
         log_info(logger, f"Cleaned up {count} temporary files")
         return count
     except Exception as e:
@@ -92,26 +90,26 @@ def cleanup_temp_files(directory=None):
 def copy_file_safely(source_path, dest_path, retries=3, wait_time=1.0):
     """
     Copy a file with retry mechanism for cloud storage issues.
-    
+
     Args:
         source_path: Path to source file
         dest_path: Path to destination file
         retries: Number of retry attempts
         wait_time: Time to wait between retries in seconds
-    
+
     Returns:
         bool: True if successful, False otherwise
     """
     source_path = Path(source_path)
     dest_path = Path(dest_path)
-    
+
     if not source_path.exists():
         log_error(logger, f"Source file does not exist: {source_path}")
         return False
-    
+
     # Ensure parent directory exists
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     for attempt in range(retries):
         try:
             # For small files, direct copy should work
@@ -119,7 +117,7 @@ def copy_file_safely(source_path, dest_path, retries=3, wait_time=1.0):
                 shutil.copy2(source_path, dest_path)
                 log_info(logger, f"Copied {source_path} to {dest_path}")
                 return True
-            
+
             # For larger files, use chunk-by-chunk copy
             with open(source_path, 'rb') as src, open(dest_path, 'wb') as dst:
                 chunk_size = 1024 * 1024  # 1MB chunks
@@ -128,24 +126,30 @@ def copy_file_safely(source_path, dest_path, retries=3, wait_time=1.0):
                     if not chunk:
                         break
                     dst.write(chunk)
-            
+
             log_info(logger, f"Copied {source_path} to {dest_path} in chunks")
             return True
-            
+
         except Exception as e:
-            log_warning(logger, f"Copy attempt {attempt+1}/{retries} failed: {e}")
+            log_warning(
+                logger,
+                f"Copy attempt {attempt + 1}/{retries} failed: {e}",
+            )
             time.sleep(wait_time)
-    
-    log_error(logger, f"Failed to copy {source_path} to {dest_path} after {retries} attempts")
+
+    log_error(
+        logger,
+        f"Failed to copy {source_path} to {dest_path} after {retries} attempts",
+    )
     return False
 
 def open_file(file_path):
     """
     Open a file with the default system application.
-    
+
     Args:
         file_path: Path to the file to open
-    
+
     Returns:
         bool: True if successful, False otherwise
     """
@@ -154,10 +158,10 @@ def open_file(file_path):
         if not file_path.exists():
             log_error(logger, f"File does not exist: {file_path}")
             return False
-        
+
         import sys
         import subprocess
-        
+
         if sys.platform == 'win32':
             os.startfile(file_path)
             log_info(logger, f"Opened {file_path} with default Windows application")
@@ -167,9 +171,9 @@ def open_file(file_path):
         else:  # Linux
             subprocess.run(['xdg-open', str(file_path)], check=True)
             log_info(logger, f"Opened {file_path} with default Linux application")
-            
+
         return True
-        
+
     except Exception as e:
         log_error(logger, f"Failed to open {file_path}: {e}")
         return False
@@ -182,14 +186,14 @@ def is_file_locked(filepath: Path) -> bool:
     """
     if not filepath.exists():
         return False # File doesn't exist, so it can't be locked
-    
+
     try:
         # Try to open the file in append mode. If it's locked, this will fail.
-        with open(filepath, 'a') as f:
-            pass # We don't need to do anything, just successfully open and close it.
+        with open(filepath, 'a'):
+            pass  # Successfully open and close it to confirm no lock.
     except (IOError, PermissionError):
         # This exception means the file is locked by another process (like Excel).
         log_warning(logger, f"File lock check failed. File is likely open: {filepath}")
         return True
-    
+
     return False
