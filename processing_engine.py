@@ -15,12 +15,12 @@ from config import STANDARDIZATION_RULES, HEADER_MAPPING
 
 logger = setup_logger("processing_engine")
 
-def process_folder(folder_path, kb_filepath, progress_cb, status_cb, ocr_cb, cancel_event):
+def process_folder(folder_path, kb_filepath, progress_cb, status_cb, ocr_cb, needs_review_cb, cancel_event):
     log_info(logger, f"Starting to process FOLDER: {folder_path}")
     files_to_process = [p for p in Path(folder_path).iterdir() if p.suffix.lower() in ['.pdf', '.zip']]
-    return _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, cancel_event)
+    return _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, ocr_cb, needs_review_cb, cancel_event)
 
-def process_zip_archive(zip_path, kb_filepath, progress_cb, status_cb, ocr_cb, cancel_event):
+def process_zip_archive(zip_path, kb_filepath, progress_cb, status_cb, ocr_cb, needs_review_cb, cancel_event):
     log_info(logger, f"Starting to process ZIP: {zip_path}")
     temp_dir = get_temp_dir()
     try:
@@ -29,11 +29,11 @@ def process_zip_archive(zip_path, kb_filepath, progress_cb, status_cb, ocr_cb, c
             if not pdf_names: return kb_filepath, 0, 0
             zip_ref.extractall(temp_dir, members=pdf_names)
             files_to_process = [temp_dir / name for name in pdf_names]
-            return _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, cancel_event)
+            return _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, ocr_cb, needs_review_cb, cancel_event)
     finally:
         cleanup_temp_files(temp_dir)
 
-def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, cancel_event):
+def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, ocr_cb, needs_review_cb, cancel_event):
     if is_file_locked(Path(kb_filepath)):
         raise FileLockError(f"Knowledge Base file is locked: {kb_filepath}")
     
@@ -55,10 +55,13 @@ def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb,
                 log_warning(logger, f"No match for {file_path.name} in XLSX. Skipping.")
                 continue
             
-            if _is_ocr_needed(file_path):
+            needs_ocr = _is_ocr_needed(file_path)
+            if needs_ocr:
                 status_cb("OCR", f"Performing OCR on {file_path.name}...")
-            
+
             text = extract_text_from_pdf(file_path)
+            if needs_ocr:
+                ocr_cb()
             if not text:
                 log_warning(logger, f"No text extracted from {file_path.name}. Marking as failure.")
                 status_cb("FAIL", f"Failed: Could not extract text from {file_path.name}")
@@ -70,6 +73,7 @@ def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb,
             
             if extracted_data.get("needs_review"):
                 status_cb("NEEDS_REVIEW", f"{file_path.name} flagged for manual review.")
+                needs_review_cb()
             else:
                 status_cb("SUCCESS", f"Successfully extracted data from {file_path.name}.")
 
