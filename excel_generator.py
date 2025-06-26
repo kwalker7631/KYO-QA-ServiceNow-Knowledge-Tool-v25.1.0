@@ -1,5 +1,4 @@
 # KYO QA ServiceNow Excel Generator - FINAL MEMORY-EFFICIENT VERSION
-from version import VERSION
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 import re

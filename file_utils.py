@@ -1,6 +1,4 @@
 # KYO QA ServiceNow File Utilities
-from version import VERSION
-
 import os
 import shutil
 import time

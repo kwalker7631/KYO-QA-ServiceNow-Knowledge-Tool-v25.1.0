@@ -1,10 +1,7 @@
 # KYO QA ServiceNow Processing Engine - FINAL VERSION (Corrected)
-from version import VERSION
 import pandas as pd
-import os, re, zipfile
+import zipfile
 from pathlib import Path
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
 
 from logging_utils import (
     setup_logger,

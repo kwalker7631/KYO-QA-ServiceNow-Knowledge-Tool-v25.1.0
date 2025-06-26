@@ -1,5 +1,4 @@
 # KYO QA ServiceNow AI Extractor - FINAL VERSION
-from version import VERSION
 import re
 from logging_utils import setup_logger
 from config import STANDARDIZATION_RULES, QA_NUMBER_PATTERNS, SHORT_QA_PATTERN, MODEL_PATTERNS, CHANGE_TYPE_PATTERNS

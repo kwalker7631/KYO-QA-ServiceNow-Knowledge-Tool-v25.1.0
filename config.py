@@ -1,5 +1,4 @@
 # KYO QA ServiceNow Configuration - FINAL VERSION
-from version import VERSION
 
 REQUIRED_FOLDERS = ["logs", "output", "PDF_TXT", "temp"]
 

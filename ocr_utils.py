@@ -1,6 +1,4 @@
 # KYO QA ServiceNow OCR Utilities
-from version import VERSION
-
 import fitz  # PyMuPDF
 import os
 from pathlib import Path
