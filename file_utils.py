@@ -1,5 +1,6 @@
 # KYO QA ServiceNow File Utilities
 from version import VERSION
+import config
 
 import os
 import shutil
@@ -10,18 +11,11 @@ from datetime import datetime
 
 logger = setup_logger("file_utils")
 
-# Ensure all needed subfolders exist
-REQUIRED_FOLDERS = [
-    "logs",
-    "output",
-    "PDF_TXT",
-    "temp"
-    # add more as needed
-]
+# Folders required by the tool are defined in config.REQUIRED_FOLDERS
 
 def ensure_folders(base_folder=None):
     base = Path(base_folder) if base_folder else Path(__file__).parent
-    for folder in REQUIRED_FOLDERS:
+    for folder in config.REQUIRED_FOLDERS:
         fpath = base / folder
         try:
             fpath.mkdir(parents=True, exist_ok=True)
