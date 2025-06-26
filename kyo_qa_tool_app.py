@@ -21,7 +21,6 @@ try:
     from gui_components import RudeButton, StatusIndicator
     from processing_engine import process_folder, process_zip_archive
     from file_utils import ensure_folders, cleanup_temp_files, open_file
-    from custom_exceptions import FileLockError
     from logging_utils import setup_logger
 except ImportError as e:
     print(f"FATAL ERROR: A required .py file is missing or corrupted: {e}")
