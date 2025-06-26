@@ -72,7 +72,11 @@ def test_success_log_called(monkeypatch):
     monkeypatch.setattr(processing_engine.pd, 'isna', lambda x: x is None, raising=False)
     monkeypatch.setattr(processing_engine.pd.DataFrame, 'to_excel', lambda self, *a, **k: None, raising=False)
     monkeypatch.setattr(processing_engine, 'is_file_locked', lambda p: False)
-    monkeypatch.setattr(processing_engine, 'extract_text_from_pdf', lambda p: 'txt')
+    monkeypatch.setattr(
+        processing_engine,
+        'extract_text_from_pdf',
+        lambda p, cb=None: 'txt'
+    )
     monkeypatch.setattr(processing_engine, 'ai_extract', lambda text, path: {})
     monkeypatch.setattr(processing_engine, '_is_ocr_needed', lambda p: False)
 
@@ -81,7 +85,15 @@ def test_success_log_called(monkeypatch):
     monkeypatch.setattr(processing_engine, 'create_failure_log', lambda *a, **k: captured.setdefault('failure', True))
 
     cancel = SimpleNamespace(is_set=lambda: False)
-    processing_engine._main_processing_loop([Path('file.pdf')], 'kb.xlsx', lambda x: None, lambda *a: None, cancel)
+    processing_engine._main_processing_loop(
+        [Path('file.pdf')],
+        'kb.xlsx',
+        lambda x: None,
+        lambda *a: None,
+        lambda: None,
+        lambda: None,
+        cancel
+    )
 
     assert '1 record' in captured.get('success', '')
     assert 'failure' not in captured

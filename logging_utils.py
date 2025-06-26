@@ -15,14 +15,17 @@ class QtWidgetHandler(logging.Handler):
         self.text_edit = text_edit
         try:
             from PySide6 import QtCore
-            self._invoker = lambda msg: QtCore.QMetaObject.invokeMethod(
-                self.text_edit,
-                "append",
-                QtCore.Qt.QueuedConnection,
-                QtCore.Q_ARG(str, msg),
-            )
+            if hasattr(QtCore, "QMetaObject") and hasattr(QtCore, "Q_ARG"):
+                self._invoker = lambda msg: QtCore.QMetaObject.invokeMethod(
+                    self.text_edit,
+                    "append",
+                    QtCore.Qt.QueuedConnection,
+                    QtCore.Q_ARG(str, msg),
+                )
+            else:
+                raise AttributeError("QtCore missing signal helpers")
         except Exception:
-            # Fallback: direct call if PySide6 not available
+            # Fallback: direct call if PySide6 not available or incomplete
             self._invoker = lambda msg: self.text_edit.append(msg)
 
     def emit(self, record: logging.LogRecord) -> None:
