@@ -83,7 +83,7 @@ This tool extracts model info, QA/SB numbers, and descriptions from Kyocera QA/s
 - **Automated**: Creates environment, installs requirements
 - **Modular & Logged**: Every action is recorded for audit/debug
 - **New**: Optional full-screen mode (press `F11`) and a scrolling progress log to
-  track each file.
+  track each file. The dashboard also shows when OCR was required for a PDF.
 
 
 
