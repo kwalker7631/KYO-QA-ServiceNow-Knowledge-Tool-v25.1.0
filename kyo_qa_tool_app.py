@@ -66,7 +66,17 @@ class ProcessingWorker(QThread):
         try:
             path_obj = Path(self.process_path)
             process_func = process_folder if path_obj.is_dir() else process_zip_archive
-            updated_path, updated, failed = process_func(self.process_path, self.kb_path, self.progress_updated.emit, self.status_updated.emit, lambda: None, self.cancel_event)
+            updated_path, updated, failed = process_func(
+                self.process_path,
+                self.kb_path,
+                self.progress_updated.emit,
+                self.status_updated.emit,
+                self.ocr_used_signal.emit,
+                self.cancel_event,
+                success_cb=self.file_succeeded.emit,
+                failure_cb=self.file_failed.emit,
+                needs_review_cb=self.needs_review_signal.emit,
+            )
             self.processing_finished.emit(updated_path, updated, failed)
         except Exception as e:
             logger.error("Error in worker thread", exc_info=True)

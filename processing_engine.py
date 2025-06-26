@@ -15,12 +15,42 @@ from config import STANDARDIZATION_RULES, HEADER_MAPPING
 
 logger = setup_logger("processing_engine")
 
-def process_folder(folder_path, kb_filepath, progress_cb, status_cb, ocr_cb, cancel_event):
+def process_folder(
+    folder_path,
+    kb_filepath,
+    progress_cb,
+    status_cb,
+    ocr_cb,
+    cancel_event,
+    success_cb=None,
+    failure_cb=None,
+    needs_review_cb=None,
+):
     log_info(logger, f"Starting to process FOLDER: {folder_path}")
     files_to_process = [p for p in Path(folder_path).iterdir() if p.suffix.lower() in ['.pdf', '.zip']]
-    return _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, cancel_event)
+    return _main_processing_loop(
+        files_to_process,
+        kb_filepath,
+        progress_cb,
+        status_cb,
+        cancel_event,
+        success_cb=success_cb,
+        failure_cb=failure_cb,
+        needs_review_cb=needs_review_cb,
+        ocr_cb=ocr_cb,
+    )
 
-def process_zip_archive(zip_path, kb_filepath, progress_cb, status_cb, ocr_cb, cancel_event):
+def process_zip_archive(
+    zip_path,
+    kb_filepath,
+    progress_cb,
+    status_cb,
+    ocr_cb,
+    cancel_event,
+    success_cb=None,
+    failure_cb=None,
+    needs_review_cb=None,
+):
     log_info(logger, f"Starting to process ZIP: {zip_path}")
     temp_dir = get_temp_dir()
     try:
@@ -29,11 +59,31 @@ def process_zip_archive(zip_path, kb_filepath, progress_cb, status_cb, ocr_cb, c
             if not pdf_names: return kb_filepath, 0, 0
             zip_ref.extractall(temp_dir, members=pdf_names)
             files_to_process = [temp_dir / name for name in pdf_names]
-            return _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, cancel_event)
+            return _main_processing_loop(
+                files_to_process,
+                kb_filepath,
+                progress_cb,
+                status_cb,
+                cancel_event,
+                success_cb=success_cb,
+                failure_cb=failure_cb,
+                needs_review_cb=needs_review_cb,
+                ocr_cb=ocr_cb,
+            )
     finally:
         cleanup_temp_files(temp_dir)
 
-def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, cancel_event):
+def _main_processing_loop(
+    files_to_process,
+    kb_filepath,
+    progress_cb,
+    status_cb,
+    cancel_event,
+    success_cb=None,
+    failure_cb=None,
+    needs_review_cb=None,
+    ocr_cb=None,
+):
     if is_file_locked(Path(kb_filepath)):
         raise FileLockError(f"Knowledge Base file is locked: {kb_filepath}")
     
@@ -57,12 +107,16 @@ def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb,
             
             if _is_ocr_needed(file_path):
                 status_cb("OCR", f"Performing OCR on {file_path.name}...")
+                if ocr_cb:
+                    ocr_cb()
             
             text = extract_text_from_pdf(file_path)
             if not text:
                 log_warning(logger, f"No text extracted from {file_path.name}. Marking as failure.")
                 status_cb("FAIL", f"Failed: Could not extract text from {file_path.name}")
                 failed_count += 1
+                if failure_cb:
+                    failure_cb()
                 continue
 
             status_cb("AI", f"Analyzing content of {file_path.name}...")
@@ -70,6 +124,8 @@ def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb,
             
             if extracted_data.get("needs_review"):
                 status_cb("NEEDS_REVIEW", f"{file_path.name} flagged for manual review.")
+                if needs_review_cb:
+                    needs_review_cb()
             else:
                 status_cb("SUCCESS", f"Successfully extracted data from {file_path.name}.")
 
@@ -82,11 +138,15 @@ def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb,
                     elif header_name == 'Author' and value != STANDARDIZATION_RULES['default_author']:
                         df.at[row_index, header_name] = value
             updated_count += 1
+            if success_cb:
+                success_cb()
         except Exception as e:
             log_error(logger, f"Failed to process {file_path.name}: {e}")
             # --- FIX 2: Provide two arguments to the status callback ---
             status_cb("FAIL", f"Critical error on {file_path.name}")
             failed_count += 1
+            if failure_cb:
+                failure_cb()
     
     if updated_count > 0:
         df.to_excel(kb_filepath, index=False, engine='openpyxl')
