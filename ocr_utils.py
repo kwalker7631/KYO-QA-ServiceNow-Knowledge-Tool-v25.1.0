@@ -50,8 +50,16 @@ def init_tesseract():
 # Initialize on module load
 TESSERACT_AVAILABLE = init_tesseract()
 
-def extract_text_from_pdf(pdf_path: Path | str) -> str:
-    """Extract text from a PDF file, using OCR if needed."""
+def extract_text_from_pdf(pdf_path: Path | str, ocr_cb=None) -> str:
+    """Extract text from a PDF file, using OCR if needed.
+
+    Parameters
+    ----------
+    pdf_path : Path | str
+        The PDF file to process.
+    ocr_cb : callable, optional
+        Callback invoked when OCR is actually performed.
+    """
     try:
         pdf_path = Path(pdf_path)
         
@@ -67,6 +75,11 @@ def extract_text_from_pdf(pdf_path: Path | str) -> str:
         # If text extraction failed and Tesseract is available, try OCR
         if TESSERACT_AVAILABLE:
             log_info(logger, f"Attempting OCR on {pdf_path}")
+            if ocr_cb:
+                try:
+                    ocr_cb()
+                except Exception as cb_exc:
+                    log_warning(logger, f"OCR callback error: {cb_exc}")
             return extract_text_with_ocr(pdf_path)
         else:
             log_warning(logger, f"No text found in {pdf_path} and OCR not available")

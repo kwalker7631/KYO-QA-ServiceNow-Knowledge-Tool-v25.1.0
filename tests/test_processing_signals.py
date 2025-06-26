@@ -68,7 +68,11 @@ def test_ocr_callback_invoked(monkeypatch):
     monkeypatch.setattr(processing_engine.pd, 'read_excel', lambda *a, **k: df, raising=False)
     monkeypatch.setattr(processing_engine.pd, 'isna', lambda x: x == '' or x is None, raising=False)
     monkeypatch.setattr(processing_engine, 'is_file_locked', lambda p: False)
-    monkeypatch.setattr(processing_engine, 'extract_text_from_pdf', lambda p: 'text')
+    monkeypatch.setattr(
+        processing_engine,
+        'extract_text_from_pdf',
+        lambda p, cb=None: (cb() if cb else None) or 'text'
+    )
     monkeypatch.setattr(processing_engine, '_is_ocr_needed', lambda p: True)
     monkeypatch.setattr(processing_engine, 'ai_extract', lambda text, path: {})
 
@@ -82,7 +86,11 @@ def test_needs_review_callback_invoked(monkeypatch):
     monkeypatch.setattr(processing_engine.pd, 'read_excel', lambda *a, **k: df, raising=False)
     monkeypatch.setattr(processing_engine.pd, 'isna', lambda x: x == '' or x is None, raising=False)
     monkeypatch.setattr(processing_engine, 'is_file_locked', lambda p: False)
-    monkeypatch.setattr(processing_engine, 'extract_text_from_pdf', lambda p: 'text')
+    monkeypatch.setattr(
+        processing_engine,
+        'extract_text_from_pdf',
+        lambda p, cb=None: 'text'
+    )
     monkeypatch.setattr(processing_engine, '_is_ocr_needed', lambda p: False)
     monkeypatch.setattr(processing_engine, 'ai_extract', lambda text, path: {'needs_review': True})
 

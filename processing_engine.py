@@ -59,9 +59,7 @@ def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb,
             if needs_ocr:
                 status_cb("OCR", f"Performing OCR on {file_path.name}...")
 
-            text = extract_text_from_pdf(file_path)
-            if needs_ocr:
-                ocr_cb()
+            text = extract_text_from_pdf(file_path, ocr_cb if needs_ocr else None)
             if not text:
                 log_warning(logger, f"No text extracted from {file_path.name}. Marking as failure.")
                 status_cb("FAIL", f"Failed: Could not extract text from {file_path.name}")
