@@ -51,6 +51,8 @@ class Worker(QThread):
                 updated, failed = 0, 0
             self.finished.emit(f"Updated: {updated}, Failed: {failed}")
         except Exception as e:
+            logger.exception("Worker thread failed", exc_info=e)
+            self.update_status.emit(f"Error: {e}")
             self.finished.emit(f"Error: {e}")
 
     def progress_cb(self, msg):
@@ -194,11 +196,20 @@ class QAApp(QMainWindow):
 
     def on_done(self, message):
         self.setCursor(QCursor(Qt.ArrowCursor))
-        self.folder_btn.setEnabled(True)
-        self.zip_btn.setEnabled(True)
-        self.excel_btn.setEnabled(True)
-        self.start_btn.setEnabled(True)
-        self.log(message)
+        if str(message).startswith("Error:"):
+            # Keep controls disabled until the user closes the error dialog
+            self.log(message)
+            self.show_error("Processing Error", str(message))
+            self.folder_btn.setEnabled(True)
+            self.zip_btn.setEnabled(True)
+            self.excel_btn.setEnabled(True)
+            self.start_btn.setEnabled(True)
+        else:
+            self.folder_btn.setEnabled(True)
+            self.zip_btn.setEnabled(True)
+            self.excel_btn.setEnabled(True)
+            self.start_btn.setEnabled(True)
+            self.log(message)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -330,8 +341,16 @@ class QAApp(QMainWindow):
 
     def on_done(self, message):
         self.setCursor(QCursor(Qt.ArrowCursor))
-        self.folder_btn.setEnabled(True)
-        self.zip_btn.setEnabled(True)
-        self.excel_btn.setEnabled(True)
-        self.start_btn.setEnabled(True)
-        self.log(message)
+        if str(message).startswith("Error:"):
+            self.log(message)
+            self.show_error("Processing Error", str(message))
+            self.folder_btn.setEnabled(True)
+            self.zip_btn.setEnabled(True)
+            self.excel_btn.setEnabled(True)
+            self.start_btn.setEnabled(True)
+        else:
+            self.folder_btn.setEnabled(True)
+            self.zip_btn.setEnabled(True)
+            self.excel_btn.setEnabled(True)
+            self.start_btn.setEnabled(True)
+            self.log(message)

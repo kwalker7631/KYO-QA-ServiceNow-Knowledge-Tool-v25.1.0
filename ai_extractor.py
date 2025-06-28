@@ -52,6 +52,8 @@ class Worker(QThread):
                 updated, failed = 0, 0
             self.finished.emit(f"Updated: {updated}, Failed: {failed}")
         except Exception as e:
+            logger.exception("Worker thread failed", exc_info=e)
+            self.update_status.emit(f"Error: {e}")
             self.finished.emit(f"Error: {e}")
 
     def progress_cb(self, msg):
