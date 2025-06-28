@@ -17,6 +17,14 @@ class DummyButton:
 
 
 # Minimal PySide6 stubs
+class DummyButton:
+    def __init__(self):
+        self.enabled = False
+    def setEnabled(self, val):
+        self.enabled = val
+    def isEnabled(self):
+        return self.enabled
+
 if 'PySide6' not in sys.modules:
     pyside6 = types.ModuleType('PySide6')
     qtwidgets = types.ModuleType('PySide6.QtWidgets')

@@ -2,6 +2,7 @@
 from version import VERSION
 import pandas as pd
 import os, re, zipfile
+import fitz  # PyMuPDF
 from pathlib import Path
 from datetime import datetime
 from dateutil.relativedelta import relativedelta

@@ -45,7 +45,7 @@ def check_and_install():
 def launch_application():
 
     """Start the GUI application."""
-    script = str(Path.cwd() / "kyo_qa_tool_app.py")
+    script = "kyo_qa_tool_app.py"
     subprocess.run([sys.executable, script], check=True)
 
 if __name__ == "__main__":
@@ -57,5 +57,6 @@ if __name__ == "__main__":
     except ImportError:
         print("[ERROR] PyPDF2 failed to import even after install.")
 
+main
     print("\n--- All dependencies satisfied. Launching app... ---\n")
     launch_application()
