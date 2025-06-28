@@ -47,7 +47,6 @@ if 'PySide6' not in sys.modules:
         def __init__(self, *args, **kwargs):
             pass
     qtgui.QCursor = QCursor
-main
 
     sys.modules['PySide6'] = pyside6
     sys.modules['PySide6.QtWidgets'] = qtwidgets

@@ -39,7 +39,6 @@ from logging_utils import setup_logger
 
 import data_harvesters
 from data_harvesters import harvest_metadata
-main
 from extract.common import bulletproof_extraction
 
 logger = setup_logger("gui")
@@ -211,4 +210,3 @@ if __name__ == "__main__":
     win = QAApp()
     win.show()
     sys.exit(app.exec())
-main
