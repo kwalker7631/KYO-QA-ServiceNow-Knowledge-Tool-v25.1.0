@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 import importlib
 import os
+from pathlib import Path
 
 # Load required packages from external file
 REQUIREMENTS_FILE = "requirements.txt"
@@ -31,6 +32,7 @@ def install_package(package):
 
 def check_and_install():
     print("\n--- Python Package Setup (auto-install on first run) ---")
+
     required_packages = load_requirements()
     for pkg in required_packages:
         try:
@@ -39,13 +41,23 @@ def check_and_install():
         except ImportError:
             install_package(pkg)
 
+
 def launch_application():
-    """Launch the main GUI application."""
-    app_script = str(Path.cwd() / "kyo_qa_tool_app.py")
-    subprocess.run([sys.executable, app_script], check=True)
 
-
+    """Start the GUI application."""
+    script = str(Path.cwd() / "kyo_qa_tool_app.py")
+    subprocess.run([sys.executable, script], check=True)
 
 if __name__ == "__main__":
     check_and_install()
+
+    # Late import now that all packages are ready
+    try:
+        from PyPDF2 import PdfReader
+    except ImportError:
+        print("[ERROR] PyPDF2 failed to import even after install.")
+
+    print("\n--- All dependencies satisfied. Launching app... ---\n")
+main
     launch_application()
+main

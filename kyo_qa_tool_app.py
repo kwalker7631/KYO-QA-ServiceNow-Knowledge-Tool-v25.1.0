@@ -12,6 +12,21 @@ except Exception:
     QCursor = object
 from logging_utils import setup_logger
 
+
+class MainWindow:
+    """Utility wrapper used in tests for status updates."""
+
+    @staticmethod
+    def log_message(self, message):
+        if hasattr(self, "log_text_edit"):
+            self.log_text_edit.append(message)
+
+    @staticmethod
+    def update_status(self, tag, message):
+        if hasattr(self, "feedback_label"):
+            self.feedback_label.setText(message)
+        MainWindow.log_message(self, message)
+
 logger = setup_logger("gui")
 
 class Worker(QThread):
@@ -38,6 +53,8 @@ class Worker(QThread):
                 updated, failed = 0, 0
             self.finished.emit(f"Updated: {updated}, Failed: {failed}")
         except Exception as e:
+            logger.exception("Worker thread failed", exc_info=e)
+            self.update_status.emit(f"Error: {e}")
             self.finished.emit(f"Error: {e}")
 
     def progress_cb(self, msg):
@@ -181,11 +198,20 @@ class QAApp(QMainWindow):
 
     def on_done(self, message):
         self.setCursor(QCursor(Qt.ArrowCursor))
-        self.folder_btn.setEnabled(True)
-        self.zip_btn.setEnabled(True)
-        self.excel_btn.setEnabled(True)
-        self.start_btn.setEnabled(True)
-        self.log(message)
+        if str(message).startswith("Error:"):
+            # Keep controls disabled until the user closes the error dialog
+            self.log(message)
+            self.show_error("Processing Error", str(message))
+            self.folder_btn.setEnabled(True)
+            self.zip_btn.setEnabled(True)
+            self.excel_btn.setEnabled(True)
+            self.start_btn.setEnabled(True)
+        else:
+            self.folder_btn.setEnabled(True)
+            self.zip_btn.setEnabled(True)
+            self.excel_btn.setEnabled(True)
+            self.start_btn.setEnabled(True)
+            self.log(message)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -317,22 +343,19 @@ class QAApp(QMainWindow):
 
     def on_done(self, message):
         self.setCursor(QCursor(Qt.ArrowCursor))
-        self.folder_btn.setEnabled(True)
-        self.zip_btn.setEnabled(True)
-        self.excel_btn.setEnabled(True)
-        self.start_btn.setEnabled(True)
-        self.log(message)
-class MainWindow:
-    def log_message(self, message):
-        if hasattr(self, "log_text_edit"):
-            self.log_text_edit.append(message)
-        logger.info(message)
 
-    @staticmethod
-    def update_status(self, tag, message):
-        if hasattr(self, "feedback_label"):
-            self.feedback_label.setText(message)
-        if hasattr(self, "log_message"):
-            self.log_message(message)
-
-
+        if str(message).startswith("Error:"):
+            self.log(message)
+            self.show_error("Processing Error", str(message))
+            self.folder_btn.setEnabled(True)
+            self.zip_btn.setEnabled(True)
+            self.excel_btn.setEnabled(True)
+            self.start_btn.setEnabled(True)
+        else:
+            self.folder_btn.setEnabled(True)
+            self.zip_btn.setEnabled(True)
+            self.excel_btn.setEnabled(True)
+            self.start_btn.setEnabled(True)
+            self.log(message)
+main
+main
