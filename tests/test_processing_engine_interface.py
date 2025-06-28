@@ -58,3 +58,8 @@ def test_process_zip_archive_signature():
     assert 'kb_filepath' in sig.parameters
     assert 'progress_cb' in sig.parameters
     assert 'status_cb' in sig.parameters
+
+
+def test_fitz_import_available():
+    """Ensure processing_engine exposes the fitz module."""
+    assert hasattr(processing_engine, 'fitz')
