@@ -10,6 +10,21 @@ from PySide6.QtGui import QCursor
 
 from logging_utils import setup_logger
 
+
+class MainWindow:
+    """Utility wrapper used in tests for status updates."""
+
+    @staticmethod
+    def log_message(self, message):
+        if hasattr(self, "log_text_edit"):
+            self.log_text_edit.append(message)
+
+    @staticmethod
+    def update_status(self, tag, message):
+        if hasattr(self, "feedback_label"):
+            self.feedback_label.setText(message)
+        MainWindow.log_message(self, message)
+
 logger = setup_logger("gui")
 
 class Worker(QThread):
