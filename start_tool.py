@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import importlib
+import re
 import os
 # Load required packages from external file
 REQUIREMENTS_FILE = "requirements.txt"
@@ -32,8 +33,9 @@ def check_and_install():
 
     required_packages = load_requirements()
     for pkg in required_packages:
+        module_name = re.split(r"[<>=]", pkg)[0]
         try:
-            importlib.import_module(pkg.split(".")[0])
+            importlib.import_module(module_name)
             print(f"[✓] Found {pkg}")
         except ImportError:
             install_package(pkg)
@@ -55,7 +57,5 @@ if __name__ == "__main__":
     except ImportError:
         print("[ERROR] PyPDF2 failed to import even after install.")
 
-main
     print("\n--- All dependencies satisfied. Launching app... ---\n")
     launch_application()
-main
