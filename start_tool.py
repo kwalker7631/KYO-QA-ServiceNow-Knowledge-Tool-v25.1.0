@@ -51,11 +51,10 @@ if __name__ == "__main__":
 
     # Late import now that all packages are ready
     try:
-        from PyPDF2 import PdfReader
-    except ImportError:
+        import PyPDF2
+        _ = PyPDF2.PdfReader  # trigger attribute access to ensure module works
+    except Exception:
         print("[ERROR] PyPDF2 failed to import even after install.")
 
-main
     print("\n--- All dependencies satisfied. Launching app... ---\n")
     launch_application()
-main

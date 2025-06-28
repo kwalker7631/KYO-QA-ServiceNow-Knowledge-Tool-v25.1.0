@@ -1,25 +1,21 @@
 """Extraction entry points for QA knowledge tool."""
 
 
-from logging_utils import setup_logger, log_info, log_error
-from config import (
-    STANDARDIZATION_RULES,
-    DATE_PATTERNS,
-    SUBJECT_PATTERNS,
-    APP_SOFTWARE_PATTERNS,
-)
-from data_harvesters import (
-    harvest_metadata,
-    harvest_subject,
-    identify_document_type,
-)
-from extract.common import (
-    bulletproof_extraction,
-    clean_text_for_extraction,
-)
+from logging_utils import setup_logger
+import sys
+
+import data_harvesters
+from extract.common import bulletproof_extraction
 
 
-from PySide6.QtCore import Qt, QThread, Signal
+__all__ = [
+    "ai_extract",
+    "bulletproof_extraction",
+    "QAApp",
+    "Worker",
+]
+
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -35,24 +31,11 @@ from PySide6.QtWidgets import (
     QGroupBox,
 )
 
-from logging_utils import setup_logger
-
-import data_harvesters
-from data_harvesters import harvest_metadata
-main
-from extract.common import bulletproof_extraction
-
 logger = setup_logger("gui")
 
 def ai_extract(text: str, pdf_path):
-    """Wrapper that proxies to data_harvesters.ai_extract using this module's
-    harvest_metadata hook."""
-    orig = data_harvesters.harvest_metadata
-    data_harvesters.harvest_metadata = harvest_metadata
-    try:
-        return data_harvesters.ai_extract(text, pdf_path)
-    finally:
-        data_harvesters.harvest_metadata = orig
+    """Proxy to ``data_harvesters.ai_extract``."""
+    return data_harvesters.ai_extract(text, pdf_path)
 
 class Worker(QThread):
     update_progress = Signal(int)
@@ -211,4 +194,3 @@ if __name__ == "__main__":
     win = QAApp()
     win.show()
     sys.exit(app.exec())
-main
