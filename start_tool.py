@@ -1,6 +1,7 @@
 # start_tool.py — First-run Bootstrapper & Auto Dependency Installer
 import subprocess
 import sys
+from pathlib import Path
 import importlib
 import os
 
@@ -9,6 +10,7 @@ REQUIREMENTS_FILE = "requirements.txt"
 
 # Add user scripts directory to PATH if needed
 script_path = os.path.expanduser(r"~\AppData\Roaming\Python\Python311\Scripts")
+
 os.environ["PATH"] += os.pathsep + script_path
 
 def load_requirements():
@@ -37,14 +39,13 @@ def check_and_install():
         except ImportError:
             install_package(pkg)
 
+def launch_application():
+    """Launch the main GUI application."""
+    app_script = str(Path.cwd() / "kyo_qa_tool_app.py")
+    subprocess.run([sys.executable, app_script], check=True)
+
+
+
 if __name__ == "__main__":
     check_and_install()
-
-    # Late import now that all packages are ready
-    try:
-        from PyPDF2 import PdfReader
-    except ImportError:
-        print("[ERROR] PyPDF2 failed to import even after install.")
-
-    print("\n--- All dependencies satisfied. Launching app... ---\n")
-    subprocess.run([sys.executable, "kyo_qa_tool_app.py"], check=True)
+    launch_application()

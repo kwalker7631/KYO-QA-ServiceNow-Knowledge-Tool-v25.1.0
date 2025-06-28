@@ -1,2 +1,5 @@
 # KYO QA Knowledge Tool Versioning
-VERSION = "v25.0.1"
+VERSION = "25.0.0"
+
+def get_version():
+    return VERSION

@@ -6,8 +6,10 @@ from PySide6.QtWidgets import (
     QFileDialog, QProgressBar, QTextEdit, QMessageBox, QHBoxLayout, QGroupBox
 )
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QCursor
-
+try:
+    from PySide6.QtGui import QCursor
+except Exception:
+    QCursor = object
 from logging_utils import setup_logger
 
 logger = setup_logger("gui")
@@ -320,3 +322,17 @@ class QAApp(QMainWindow):
         self.excel_btn.setEnabled(True)
         self.start_btn.setEnabled(True)
         self.log(message)
+class MainWindow:
+    def log_message(self, message):
+        if hasattr(self, "log_text_edit"):
+            self.log_text_edit.append(message)
+        logger.info(message)
+
+    @staticmethod
+    def update_status(self, tag, message):
+        if hasattr(self, "feedback_label"):
+            self.feedback_label.setText(message)
+        if hasattr(self, "log_message"):
+            self.log_message(message)
+
+
