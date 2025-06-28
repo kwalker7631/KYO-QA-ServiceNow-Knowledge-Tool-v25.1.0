@@ -24,5 +24,8 @@ def test_launch_application_uses_correct_script(monkeypatch):
 
 def test_main_block_contains_launch_call():
     src = Path(start_tool.__file__).read_text()
-    idx = src.index('if __name__ == "__main__"')
-    assert 'launch_application()' in src[idx:]
+    assert 'if __name__ == "__main__"' in src
+    assert '\nmain\n' not in src
+    start = src.index('if __name__ == "__main__"')
+    assert 'launch_application()' in src[start:]
+

@@ -59,3 +59,4 @@ if __name__ == "__main__":
 
     print("\n--- All dependencies satisfied. Launching app... ---\n")
     launch_application()
+
