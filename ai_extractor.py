@@ -1,38 +1,151 @@
-# KYO QA ServiceNow AI Extractor - FINAL VERSION
-import re
+# KYO QA GUI REFACTOR - IMPROVED NAV + FEEDBACK
+import sys, os
+from pathlib import Path
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
+    QFileDialog, QProgressBar, QTextEdit, QMessageBox, QHBoxLayout, QGroupBox
+)
+from PySide6.QtCore import Qt, QThread, Signal
+
+from processing_engine import process_folder, process_zip_archive
 from logging_utils import setup_logger
-from extract.common import clean_text_for_extraction, bulletproof_extraction
 
-logger = setup_logger("ai_extractor")
+logger = setup_logger("gui")
 
-def transform_qa_number(full_qa, short_qa, revision_str):
-    full_qa = full_qa.replace('_', '-')
-    match = re.match(r"(E\d+)-([A-Z0-9\-]+)", full_qa)
-    if match and not short_qa:
-        prefix, suffix = match.groups()
-        full_qa = f"{suffix.upper()} ({prefix})"
-        short_qa = prefix
-    elif short_qa and f"({short_qa})" not in full_qa:
-        full_qa = f"{full_qa} ({short_qa})"
-    if revision_str:
-        full_qa = f"{full_qa} {revision_str}"
-    return full_qa, short_qa
+class Worker(QThread):
+    update_progress = Signal(int)
+    update_status = Signal(str)
+    finished = Signal(str)
 
+    def __init__(self, mode, path, kb_path):
+        super().__init__()
+        self.mode = mode
+        self.path = path
+        self.kb_path = kb_path
 
-def extract_revision_from_filename(filename):
-    match = re.search(r'[_-]r(ev\.?)?(\d+)', filename, re.IGNORECASE)
-    return f"REV: {match.group(2)}" if match else ""
+    def run(self):
+        try:
+            if self.mode == 'folder':
+                _, updated, failed = process_folder(self.path, self.kb_path, self.progress_cb, self.status_cb, self.ocr_cb, self.review_cb, self.cancel_flag)
+            elif self.mode == 'zip':
+                _, updated, failed = process_zip_archive(self.path, self.kb_path, self.progress_cb, self.status_cb, self.ocr_cb, self.review_cb, self.cancel_flag)
+            else:
+                updated, failed = 0, 0
+            self.finished.emit(f"Updated: {updated}, Failed: {failed}")
+        except Exception as e:
+            self.finished.emit(f"Error: {e}")
 
-def ai_extract(text, pdf_path):
-    from data_harvesters import harvest_metadata, harvest_subject, identify_document_type
-    filename = pdf_path.name
-    cleaned_text = clean_text_for_extraction(text)
-    data = bulletproof_extraction(cleaned_text, filename)
-    revision_str = extract_revision_from_filename(filename)
-    if data.get('full_qa_number'):
-        full, short = transform_qa_number(data.get('full_qa_number', ''), data.get('short_qa_number', ''), revision_str)
-        data['full_qa_number'], data['short_qa_number'] = full, short
-    data.update(harvest_metadata(cleaned_text, pdf_path))
-    data["subject"] = harvest_subject(cleaned_text, data.get('full_qa_number'))
-    data["document_type"] = identify_document_type(cleaned_text)
-    return data
+    def progress_cb(self, msg):
+        self.update_progress.emit(1)
+        self.update_status.emit(msg)
+
+    def status_cb(self, tag, msg):
+        self.update_status.emit(f"{tag}: {msg}")
+
+    def ocr_cb(self):
+        self.update_status.emit("OCR triggered")
+
+    def review_cb(self):
+        self.update_status.emit("Needs manual review")
+
+    def cancel_flag(self):
+        return False
+
+class QAApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("KYO QA Knowledge Tool")
+        self.setGeometry(200, 200, 800, 500)
+        self.kb_path = None
+        self._build_ui()
+
+    def _build_ui(self):
+        central = QWidget()
+        layout = QVBoxLayout()
+
+        file_group = QGroupBox("Select Files to Process")
+        fg_layout = QHBoxLayout()
+
+        self.folder_btn = QPushButton("Select Folder")
+        self.folder_btn.clicked.connect(self.select_folder)
+        fg_layout.addWidget(self.folder_btn)
+
+        self.zip_btn = QPushButton("Select ZIP File")
+        self.zip_btn.clicked.connect(self.select_zip)
+        fg_layout.addWidget(self.zip_btn)
+
+        self.excel_btn = QPushButton("Select Excel File")
+        self.excel_btn.clicked.connect(self.select_excel)
+        fg_layout.addWidget(self.excel_btn)
+
+        file_group.setLayout(fg_layout)
+        layout.addWidget(file_group)
+
+        self.status_box = QTextEdit()
+        self.status_box.setReadOnly(True)
+        layout.addWidget(QLabel("Process Log:"))
+        layout.addWidget(self.status_box)
+
+        self.progress = QProgressBar()
+        self.progress.setValue(0)
+        layout.addWidget(self.progress)
+
+        central.setLayout(layout)
+        self.setCentralWidget(central)
+
+    def select_folder(self):
+        path = QFileDialog.getExistingDirectory(self, "Choose Folder")
+        if path and self.kb_path:
+            self.log(f"Selected folder: {path}")
+            self.start_worker('folder', path)
+        elif not self.kb_path:
+            self.show_error("No Excel File", "Please select an Excel file first.")
+
+    def select_zip(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose ZIP", filter="Zip files (*.zip)")
+        if path and self.kb_path:
+            self.log(f"Selected ZIP: {path}")
+            self.start_worker('zip', path)
+        elif not self.kb_path:
+            self.show_error("No Excel File", "Please select an Excel file first.")
+
+    def select_excel(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose Excel File", filter="Excel (*.xlsx *.xls)")
+        if path:
+            self.kb_path = path
+            self.log(f"Selected Excel: {path}")
+            self.show_headers(path)
+
+    def show_headers(self, xlsx_path):
+        try:
+            import pandas as pd
+            df = pd.read_excel(xlsx_path, engine="openpyxl")
+            headers = list(df.columns)
+            self.log(f"Headers Found: {headers}")
+        except Exception as e:
+            self.show_error("Header Read Error", f"Failed to read headers: {e}")
+
+    def log(self, message):
+        self.status_box.append(message)
+        logger.info(message)
+
+    def show_error(self, title, message):
+        QMessageBox.critical(self, title, message)
+        logger.error(f"{title}: {message}")
+
+    def start_worker(self, mode, path):
+        self.worker = Worker(mode, path, self.kb_path)
+        self.worker.update_progress.connect(self.increment_progress)
+        self.worker.update_status.connect(self.log)
+        self.worker.finished.connect(self.log)
+        self.progress.setValue(0)
+        self.worker.start()
+
+    def increment_progress(self, value):
+        self.progress.setValue(self.progress.value() + value)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    win = QAApp()
+    win.show()
+    sys.exit(app.exec())

@@ -1,247 +1,322 @@
-# KYO QA ServiceNow Tool - FINAL All-in-One Version (Corrected)
-# This script contains the launcher, UI definition, and all necessary methods.
-
-import sys
-import os
-import re
-import time
-import threading
+# KYO QA GUI REFACTOR - IMPROVED NAV + FEEDBACK + ACTIVITY INDICATORS
+import sys, os
 from pathlib import Path
-
-# --- PySide6 Imports ---
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QStatusBar, QGroupBox, QLineEdit, QPushButton, QFileDialog, QProgressBar, QTextEdit, QMessageBox
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
+    QFileDialog, QProgressBar, QTextEdit, QMessageBox, QHBoxLayout, QGroupBox
 )
 from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QCursor
 
-# --- Project Module Imports ---
-try:
-    from version import VERSION
-    from gui_components import RudeButton, StatusIndicator
-    from processing_engine import process_folder, process_zip_archive
-    from file_utils import ensure_folders, cleanup_temp_files, open_file
-    from logging_utils import setup_logger
-except ImportError as e:
-    print(f"FATAL ERROR: A required .py file is missing or corrupted: {e}")
-    input("Press Enter to exit...")
-    sys.exit(1)
+from logging_utils import setup_logger
 
-logger = setup_logger("app_ui")
+logger = setup_logger("gui")
 
-# --- Final Stylesheet ---
-STYLESHEET = """
-    QMainWindow { background-color: #FFFFFF; font-family: "Segoe UI"; }
-    #header { background-color: #231F20; border-bottom: 4px solid #E31A2F; }
-    #logoLabel { color: #E31A2F; font-family: "Arial Black"; font-size: 26px; padding: 5px 0 5px 15px; }
-    #titleLabel { color: #FFFFFF; font-size: 18px; font-weight: bold; padding-top: 8px; }
-    QGroupBox { font-size: 11pt; font-weight: bold; color: #231F20; border: 1px solid #D0D0D0; border-radius: 8px; margin-top: 1ex; background-color: #F5F5F5; }
-    QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 10px; background-color: #F5F5F5; border-radius: 4px;}
-    QPushButton { background-color: #0A9BCD; color: white; font-weight: bold; font-size: 10pt; padding: 10px 15px; border-radius: 5px; border: none; }
-    QPushButton:hover { background-color: #0dbdeF; }
-    #startButton { background-color: #E31A2F; font-size: 13px; }
-    #startButton:hover { background-color: #ff4c61; }
-    QProgressBar { border: 1px solid #BFBFBF; border-radius: 5px; text-align: center; font-weight: bold; color: #FFFFFF; }
-    QProgressBar::chunk { background-color: #0A9BCD; border-radius: 4px; }
-    #feedbackLabel { font-size: 10pt; font-style: italic; color: #333333; }
-"""
+class Worker(QThread):
+    update_progress = Signal(int)
+    update_status = Signal(str)
+    finished = Signal(str)
 
-class ProcessingWorker(QThread):
-    progress_updated = Signal(str)
-    status_updated = Signal(str, str)
-    processing_finished = Signal(str, int, int)
-    processing_error = Signal(str, str)
-    file_succeeded = Signal()
-    file_failed = Signal()
-    ocr_used_signal = Signal()
-    needs_review_signal = Signal()
-
-    def __init__(self, process_path, kb_path, parent=None):
-        super().__init__(parent)
-        self.process_path = process_path
+    def __init__(self, mode, path, kb_path):
+        super().__init__()
+        self.mode = mode
+        self.path = path
         self.kb_path = kb_path
-        self.cancel_event = threading.Event()
 
     def run(self):
         try:
-            path_obj = Path(self.process_path)
-            process_func = process_folder if path_obj.is_dir() else process_zip_archive
-            updated_path, updated, failed = process_func(
-                self.process_path,
-                self.kb_path,
-                self.progress_updated.emit,
-                self.status_updated.emit,
-                self.ocr_used_signal.emit,
-                self.needs_review_signal.emit,
-                self.cancel_event,
-            )
-            self.processing_finished.emit(updated_path, updated, failed)
+            # Delayed import to avoid circular dependency
+            from processing_engine import process_folder, process_zip_archive
+
+            if self.mode == 'folder':
+                _, updated, failed = process_folder(self.path, self.kb_path, self.progress_cb, self.status_cb, self.ocr_cb, self.review_cb, self.cancel_flag)
+            elif self.mode == 'zip':
+                _, updated, failed = process_zip_archive(self.path, self.kb_path, self.progress_cb, self.status_cb, self.ocr_cb, self.review_cb, self.cancel_flag)
+            else:
+                updated, failed = 0, 0
+            self.finished.emit(f"Updated: {updated}, Failed: {failed}")
         except Exception as e:
-            logger.error("Error in worker thread", exc_info=True)
-            self.processing_error.emit("Processing Failed", str(e))
+            self.finished.emit(f"Error: {e}")
 
-    def stop(self):
-        self.cancel_event.set()
+    def progress_cb(self, msg):
+        self.update_progress.emit(1)
+        self.update_status.emit(msg)
 
-class MainWindow(QMainWindow):
+    def status_cb(self, tag, msg):
+        self.update_status.emit(f"{tag}: {msg}")
+
+    def ocr_cb(self):
+        self.update_status.emit("OCR triggered")
+
+    def review_cb(self):
+        self.update_status.emit("Needs manual review")
+
+    def cancel_flag(self):
+        return False
+
+class QAApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.worker = None
-        self.result_file_path = None
-        self._setup_window_and_widgets()
-        self.setStyleSheet(STYLESHEET)
-        # Register GUI log handler now that the text edit widget exists
-        setup_logger("app_ui", log_widget=self.log_text_edit)
+        self.setWindowTitle("KYO QA Knowledge Tool")
+        self.setGeometry(200, 200, 800, 500)
+        self.kb_path = None
+        self.selected_folder = None
+        self.selected_zip = None
+        self._build_ui()
 
-    def _setup_window_and_widgets(self):
-        self.setWindowTitle(f"Kyocera QA ServiceNow Knowledge Tool v{VERSION}")
-        self.setMinimumSize(950, 700)
-        self.resize(1100, 800)
-        central_widget = QWidget(self)
-        self.setCentralWidget(central_widget)
-        self.main_layout = QVBoxLayout(central_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-        self._create_header()
-        central_area = QWidget()
-        central_area_layout = QVBoxLayout(central_area)
-        central_area_layout.setContentsMargins(15, 15, 15, 15)
-        central_area_layout.setSpacing(15)
-        self._create_io_section(central_area_layout)
-        self._create_controls_section(central_area_layout)
-        self._create_feedback_section(central_area_layout)
-        self._create_log_section(central_area_layout)
-        self.main_layout.addWidget(central_area, 1)
-        self._create_status_bar()
+    def _build_ui(self):
+        central = QWidget()
+        layout = QVBoxLayout()
 
-    def _create_header(self):
-        header_widget = QWidget(); header_widget.setObjectName("header")
-        header_layout = QHBoxLayout(header_widget)
-        logo = QLabel("KYOCERA"); logo.setObjectName("logoLabel")
-        title = QLabel("QA ServiceNow Knowledge Tool"); title.setObjectName("titleLabel")
-        header_layout.addWidget(logo); header_layout.addWidget(title); header_layout.addStretch()
-        self.main_layout.addWidget(header_widget)
+        file_group = QGroupBox("Select Files to Process")
+        fg_layout = QHBoxLayout()
 
-    def _create_io_section(self, parent_layout):
-        io_groupbox = QGroupBox("1. Select Files"); layout = QGridLayout(io_groupbox)
-        self.kb_path_edit = QLineEdit(); self.kb_path_edit.setPlaceholderText("Select your existing .xlsx KB file")
-        kb_browse_btn = QPushButton("Browse..."); kb_browse_btn.clicked.connect(self.browse_kb_file)
-        self.process_path_edit = QLineEdit(); self.process_path_edit.setPlaceholderText("Select a folder or .zip file of PDFs")
-        folder_browse_btn = QPushButton("Select Folder..."); folder_browse_btn.clicked.connect(self.browse_folder)
-        zip_browse_btn = QPushButton("Select ZIP..."); zip_browse_btn.clicked.connect(self.browse_zip)
-        btn_layout = QHBoxLayout(); btn_layout.addWidget(folder_browse_btn); btn_layout.addWidget(zip_browse_btn); btn_layout.addStretch()
-        layout.addWidget(QLabel("Knowledge Base File:"), 0, 0); layout.addWidget(self.kb_path_edit, 0, 1); layout.addWidget(kb_browse_btn, 0, 2)
-        layout.addWidget(QLabel("Process Folder/ZIP:"), 1, 0); layout.addWidget(self.process_path_edit, 1, 1); layout.addLayout(btn_layout, 1, 2)
-        layout.setColumnStretch(1, 1); parent_layout.addWidget(io_groupbox)
+        self.folder_btn = QPushButton("Select Folder")
+        self.folder_btn.clicked.connect(self.select_folder)
+        fg_layout.addWidget(self.folder_btn)
 
-    def _create_controls_section(self, parent_layout):
-        controls_groupbox = QGroupBox("2. Process"); layout = QHBoxLayout(controls_groupbox)
-        self.start_button = QPushButton("▶ UPDATE KNOWLEDGE BASE"); self.start_button.setObjectName("startButton"); self.start_button.setToolTip("Begin processing...")
-        self.open_kb_button = QPushButton("📂 Open KB File"); self.open_kb_button.setToolTip("Open the selected Knowledge Base file.")
-        self.clear_inputs_button = QPushButton("✨ Clear Inputs"); self.clear_inputs_button.setToolTip("Clear all file selections.")
-        self.rude_button = RudeButton("Rage Click", controls_groupbox); self.rude_button.setVisible(False)
-        layout.addWidget(self.start_button, 2); layout.addWidget(self.open_kb_button, 1); layout.addWidget(self.clear_inputs_button, 1); layout.addWidget(self.rude_button, 1)
-        parent_layout.addWidget(controls_groupbox)
-        self.start_button.clicked.connect(self.start_processing)
-        self.open_kb_button.clicked.connect(self.open_kb_file)
-        self.clear_inputs_button.clicked.connect(self.clear_inputs)
+        self.zip_btn = QPushButton("Select ZIP File")
+        self.zip_btn.clicked.connect(self.select_zip)
+        fg_layout.addWidget(self.zip_btn)
 
-    def _create_feedback_section(self, parent_layout):
-        feedback_groupbox = QGroupBox("3. Live Dashboard"); layout = QVBoxLayout(feedback_groupbox)
-        icon_layout = QHBoxLayout(); self.pass_indicator = StatusIndicator("Succeeded", "✅", "#00B176"); self.fail_indicator = StatusIndicator("Failed", "❌", "#E31A2F")
-        self.review_indicator = StatusIndicator("Needs Review", "⚠️", "#F5B400"); self.ocr_indicator = StatusIndicator("OCR Used", "👁️", "#0A9BCD")
-        icon_layout.addWidget(self.pass_indicator); icon_layout.addWidget(self.fail_indicator); icon_layout.addWidget(self.review_indicator); icon_layout.addWidget(self.ocr_indicator)
-        layout.addLayout(icon_layout)
-        self.feedback_label = QLabel("Ready to begin processing..."); self.feedback_label.setObjectName("feedbackLabel"); self.feedback_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.feedback_label)
-        self.progress_bar = QProgressBar(); layout.addWidget(self.progress_bar); parent_layout.addWidget(feedback_groupbox)
+        self.excel_btn = QPushButton("Select Excel File")
+        self.excel_btn.clicked.connect(self.select_excel)
+        fg_layout.addWidget(self.excel_btn)
 
-    def _create_log_section(self, parent_layout):
-        log_groupbox = QGroupBox("4. Activity Log"); layout = QVBoxLayout(log_groupbox)
-        self.log_text_edit = QTextEdit(); self.log_text_edit.setReadOnly(True)
-        self.log_text_edit.setStyleSheet("background-color: #FCFCFC; font-family: Consolas; font-size: 9pt;")
-        layout.addWidget(self.log_text_edit, 1); parent_layout.addWidget(log_groupbox, 1)
+        file_group.setLayout(fg_layout)
+        layout.addWidget(file_group)
 
-    def _create_status_bar(self):
-        self.status_bar = QStatusBar(); self.setStatusBar(self.status_bar);
-        self.status_label = QLabel("Ready."); self.status_bar.addWidget(self.status_label)
-        exit_button = QPushButton("Exit"); exit_button.setToolTip("Close the application"); exit_button.setStyleSheet("padding: 4px 15px; background-color: #6c757d;")
-        exit_button.clicked.connect(self.close); self.status_bar.addPermanentWidget(exit_button)
+        # --- New Start Button
+        self.start_btn = QPushButton("Start Processing")
+        self.start_btn.setEnabled(False)
+        self.start_btn.clicked.connect(self.start_processing)
+        layout.addWidget(self.start_btn)
+        # ---
+
+        self.status_box = QTextEdit()
+        self.status_box.setReadOnly(True)
+        layout.addWidget(QLabel("Process Log:"))
+        layout.addWidget(self.status_box)
+
+        self.progress = QProgressBar()
+        self.progress.setValue(0)
+        layout.addWidget(self.progress)
+
+        central.setLayout(layout)
+        self.setCentralWidget(central)
+
+    def update_start_btn_state(self):
+        ready = bool(self.kb_path and (self.selected_folder or self.selected_zip))
+        self.start_btn.setEnabled(ready)
+
+    def select_folder(self):
+        path = QFileDialog.getExistingDirectory(self, "Choose Folder")
+        if path:
+            self.selected_folder = path
+            self.selected_zip = None
+            self.log(f"Selected folder: {path}")
+            self.update_start_btn_state()
+        elif not self.kb_path:
+            self.show_error("No Excel File", "Please select an Excel file first.")
+
+    def select_zip(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose ZIP", filter="Zip files (*.zip)")
+        if path:
+            self.selected_zip = path
+            self.selected_folder = None
+            self.log(f"Selected ZIP: {path}")
+            self.update_start_btn_state()
+        elif not self.kb_path:
+            self.show_error("No Excel File", "Please select an Excel file first.")
+
+    def select_excel(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose Excel File", filter="Excel (*.xlsx *.xls)")
+        if path:
+            self.kb_path = path
+            self.log(f"Selected Excel: {path}")
+            self.show_headers(path)
+            self.update_start_btn_state()
+
+    def show_headers(self, xlsx_path):
+        try:
+            import pandas as pd
+            df = pd.read_excel(xlsx_path, engine="openpyxl")
+            headers = list(df.columns)
+            self.log(f"Headers Found: {headers}")
+        except Exception as e:
+            self.show_error("Header Read Error", f"Failed to read headers: {e}")
+
+    def log(self, message):
+        self.status_box.append(message)
+        logger.info(message)
+
+    def show_error(self, title, message):
+        QMessageBox.critical(self, title, message)
+        logger.error(f"{title}: {message}")
 
     def start_processing(self):
-        kb_path, process_path = self.kb_path_edit.text(), self.process_path_edit.text()
-        if not kb_path or not process_path: return QMessageBox.warning(self, "Input Missing", "Please select both a KB file and a folder/ZIP.")
-        self.update_ui_for_processing(True)
-        self.worker = ProcessingWorker(process_path, kb_path)
-        self.worker.progress_updated.connect(self.update_progress)
-        self.worker.status_updated.connect(self.update_status)
-        self.worker.file_succeeded.connect(self.pass_indicator.increment)
-        self.worker.file_failed.connect(self.fail_indicator.increment)
-        self.worker.needs_review_signal.connect(self.review_indicator.increment)
-        self.worker.ocr_used_signal.connect(self.ocr_indicator.increment)
-        self.worker.processing_finished.connect(self.processing_finished)
-        self.worker.processing_error.connect(self.handle_error)
-        self.worker.finished.connect(lambda: self.update_ui_for_processing(False))
+        if self.selected_folder:
+            self.start_worker('folder', self.selected_folder)
+        elif self.selected_zip:
+            self.start_worker('zip', self.selected_zip)
+
+    def start_worker(self, mode, path):
+        self.setCursor(QCursor(Qt.WaitCursor))
+        self.folder_btn.setEnabled(False)
+        self.zip_btn.setEnabled(False)
+        self.excel_btn.setEnabled(False)
+        self.start_btn.setEnabled(False)
+
+        self.worker = Worker(mode, path, self.kb_path)
+        self.worker.update_progress.connect(self.increment_progress)
+        self.worker.update_status.connect(self.log)
+        self.worker.finished.connect(self.on_done)
+        self.progress.setValue(0)
         self.worker.start()
 
-    def update_ui_for_processing(self, is_processing):
-        self.start_button.setEnabled(not is_processing); self.clear_inputs_button.setEnabled(not is_processing)
-        self.feedback_label.setText("Processing..." if is_processing else "Processing complete.")
-        if not is_processing: self.progress_bar.setValue(0); self.status_label.setText("Ready.")
-        else:
-            self.status_label.setText("Processing...")
-            self.pass_indicator.reset(); self.fail_indicator.reset(); self.review_indicator.reset(); self.ocr_indicator.reset()
-            self.rude_button.setVisible(False); self.log_text_edit.clear()
+    def increment_progress(self, value):
+        self.progress.setValue(self.progress.value() + value)
 
-    def update_progress(self, message):
-        self.log_message(message)
-        match = re.search(r"Processing (\d+)/(\d+)", message)
-        if match: self.progress_bar.setValue(int((int(match.group(1)) / int(match.group(2))) * 100))
-
-    def update_status(self, category, message):
-        self.feedback_label.setText(message)
-        self.log_message(message)
-
-    def handle_error(self, title, message):
-        logger.error(f"{title}: {message}", exc_info=True); self.log_message(f"ERROR: {message}")
-        QMessageBox.critical(self, title, message); self.rude_button.setVisible(True); self.rude_button.start_animation()
-
-    def processing_finished(self, updated_path, updated_count, failed_count):
-        self.result_file_path = updated_path
-        self.log_message(f"Finished! {updated_count} records updated, {failed_count} files failed.")
-        if QMessageBox.question(self, "Processing Complete", f"Success!\n- Records Updated: {updated_count}\n- Files Failed: {failed_count}\n\nWould you like to open the updated file?") == QMessageBox.Yes: self.open_kb_file()
-
-    # --- FIX: Restoring all missing helper methods ---
-    def log_message(self, text):
-        timestamp = time.strftime("%H:%M:%S"); self.log_text_edit.append(f"[{timestamp}] {text}")
-    def browse_kb_file(self):
-        filepath, _ = QFileDialog.getOpenFileName(self, "Select KB File", "", "Excel Files (*.xlsx)");
-        if filepath: self.kb_path_edit.setText(filepath)
-    def browse_folder(self):
-        dir_path = QFileDialog.getExistingDirectory(self, "Select Folder of PDFs");
-        if dir_path: self.process_path_edit.setText(dir_path)
-    def browse_zip(self):
-        filepath, _ = QFileDialog.getOpenFileName(self, "Select ZIP Archive", "", "ZIP Files (*.zip)");
-        if filepath: self.process_path_edit.setText(filepath)
-    def clear_inputs(self):
-        self.kb_path_edit.clear(); self.process_path_edit.clear(); self.log_message("Inputs cleared.")
-    def open_kb_file(self):
-        kb_path = self.kb_path_edit.text()
-        if kb_path and Path(kb_path).exists(): open_file(kb_path)
-        else: QMessageBox.warning(self, "File Not Found", "Please select a valid Knowledge Base file first.")
-    def on_closing(self):
-        if self.worker and self.worker.isRunning():
-            if QMessageBox.question(self, "Exit Confirmation", "Processing is in progress. Are you sure?") == QMessageBox.Yes: self.worker.stop(); self.close()
-        else: self.close()
-
-def main():
-    """Launches the application."""
-    ensure_folders()
-    cleanup_temp_files()
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+    def on_done(self, message):
+        self.setCursor(QCursor(Qt.ArrowCursor))
+        self.folder_btn.setEnabled(True)
+        self.zip_btn.setEnabled(True)
+        self.excel_btn.setEnabled(True)
+        self.start_btn.setEnabled(True)
+        self.log(message)
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    win = QAApp()
+    win.show()
+    sys.exit(app.exec())
+class QAApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("KYO QA Knowledge Tool")
+        self.setGeometry(200, 200, 800, 500)
+        self.kb_path = None
+        self.selected_folder = None
+        self.selected_zip = None
+        self._build_ui()
+
+    def _build_ui(self):
+        central = QWidget()
+        layout = QVBoxLayout()
+
+        file_group = QGroupBox("Select Files to Process")
+        fg_layout = QHBoxLayout()
+
+        self.folder_btn = QPushButton("Select Folder")
+        self.folder_btn.clicked.connect(self.select_folder)
+        fg_layout.addWidget(self.folder_btn)
+
+        self.zip_btn = QPushButton("Select ZIP File")
+        self.zip_btn.clicked.connect(self.select_zip)
+        fg_layout.addWidget(self.zip_btn)
+
+        self.excel_btn = QPushButton("Select Excel File")
+        self.excel_btn.clicked.connect(self.select_excel)
+        fg_layout.addWidget(self.excel_btn)
+
+        file_group.setLayout(fg_layout)
+        layout.addWidget(file_group)
+
+        # --- New Start Button
+        self.start_btn = QPushButton("Start Processing")
+        self.start_btn.setEnabled(False)
+        self.start_btn.clicked.connect(self.start_processing)
+        layout.addWidget(self.start_btn)
+        # ---
+
+        self.status_box = QTextEdit()
+        self.status_box.setReadOnly(True)
+        layout.addWidget(QLabel("Process Log:"))
+        layout.addWidget(self.status_box)
+
+        self.progress = QProgressBar()
+        self.progress.setValue(0)
+        layout.addWidget(self.progress)
+
+        central.setLayout(layout)
+        self.setCentralWidget(central)
+
+    def update_start_btn_state(self):
+        ready = bool(self.kb_path and (self.selected_folder or self.selected_zip))
+        self.start_btn.setEnabled(ready)
+
+    def select_folder(self):
+        path = QFileDialog.getExistingDirectory(self, "Choose Folder")
+        if path:
+            self.selected_folder = path
+            self.selected_zip = None
+            self.log(f"Selected folder: {path}")
+            self.update_start_btn_state()
+        elif not self.kb_path:
+            self.show_error("No Excel File", "Please select an Excel file first.")
+
+    def select_zip(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose ZIP", filter="Zip files (*.zip)")
+        if path:
+            self.selected_zip = path
+            self.selected_folder = None
+            self.log(f"Selected ZIP: {path}")
+            self.update_start_btn_state()
+        elif not self.kb_path:
+            self.show_error("No Excel File", "Please select an Excel file first.")
+
+    def select_excel(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose Excel File", filter="Excel (*.xlsx *.xls)")
+        if path:
+            self.kb_path = path
+            self.log(f"Selected Excel: {path}")
+            self.show_headers(path)
+            self.update_start_btn_state()
+
+    def show_headers(self, xlsx_path):
+        try:
+            import pandas as pd
+            df = pd.read_excel(xlsx_path, engine="openpyxl")
+            headers = list(df.columns)
+            self.log(f"Headers Found: {headers}")
+        except Exception as e:
+            self.show_error("Header Read Error", f"Failed to read headers: {e}")
+
+    def log(self, message):
+        self.status_box.append(message)
+        logger.info(message)
+
+    def show_error(self, title, message):
+        QMessageBox.critical(self, title, message)
+        logger.error(f"{title}: {message}")
+
+    def start_processing(self):
+        if self.selected_folder:
+            self.start_worker('folder', self.selected_folder)
+        elif self.selected_zip:
+            self.start_worker('zip', self.selected_zip)
+
+    def start_worker(self, mode, path):
+        self.setCursor(QCursor(Qt.WaitCursor))
+        self.folder_btn.setEnabled(False)
+        self.zip_btn.setEnabled(False)
+        self.excel_btn.setEnabled(False)
+        self.start_btn.setEnabled(False)
+
+        self.worker = Worker(mode, path, self.kb_path)
+        self.worker.update_progress.connect(self.increment_progress)
+        self.worker.update_status.connect(self.log)
+        self.worker.finished.connect(self.on_done)
+        self.progress.setValue(0)
+        self.worker.start()
+
+    def increment_progress(self, value):
+        self.progress.setValue(self.progress.value() + value)
+
+    def on_done(self, message):
+        self.setCursor(QCursor(Qt.ArrowCursor))
+        self.folder_btn.setEnabled(True)
+        self.zip_btn.setEnabled(True)
+        self.excel_btn.setEnabled(True)
+        self.start_btn.setEnabled(True)
+        self.log(message)

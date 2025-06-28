@@ -1,3 +1,30 @@
+# processing_engine.py
+
+import os
+import pandas as pd
+# import your extractors, ocr_utils, etc. here as needed
+
+def process_folder(folder_path, kb_path, progress_cb=None, status_cb=None, ocr_cb=None, review_cb=None, cancel_flag=None):
+    # Dummy example logic
+    # Replace this with your actual folder processing logic
+    updated, failed = 0, 0
+    for file in os.listdir(folder_path):
+        if file.lower().endswith(".pdf"):
+            # ... PDF processing code ...
+            updated += 1
+            if progress_cb:
+                progress_cb(1)
+    return None, updated, failed
+
+def process_zip_archive(zip_path, kb_path, progress_cb=None, status_cb=None, ocr_cb=None, review_cb=None, cancel_flag=None):
+    # Dummy example logic
+    # Replace this with your actual ZIP processing logic
+    updated, failed = 0, 0
+    # ... ZIP processing code ...
+    return None, updated, failed
+
+# Add any helper functions below, but DO NOT import from your GUI
+
 # KYO QA ServiceNow Processing Engine - FINAL VERSION (Corrected)
 from version import VERSION
 import pandas as pd

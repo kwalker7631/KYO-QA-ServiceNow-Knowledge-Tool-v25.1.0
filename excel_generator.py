@@ -1,4 +1,4 @@
-# KYO QA ServiceNow Excel Generator - FINAL MEMORY-EFFICIENT VERSION
+# KYO QA ServiceNow Excel Generator - REFACTORED FOR SAFETY
 from version import VERSION
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -28,18 +28,15 @@ def sanitize_for_excel(value):
     return value
 
 def apply_styles_to_row(row, fill_color=None):
-    """Applies alignment and fill color to all cells in a row."""
     for cell in row:
         cell.alignment = Alignment(wrap_text=True, vertical='top', horizontal='left')
         if fill_color:
             cell.fill = fill_color
 
 def finalize_styles(worksheet):
-    """Applies header font and auto-fits columns after all data is written."""
     header_font = Font(bold=True)
     for cell in worksheet[1]:
         cell.font = header_font
-    
     for column_cells in worksheet.columns:
         try:
             max_length = max(len(str(cell.value)) for cell in column_cells if cell.value)
@@ -49,10 +46,10 @@ def finalize_styles(worksheet):
     log_info(logger, "Final worksheet styling complete.")
 
 class ExcelWriter:
-    """A class to manage writing to an Excel file row-by-row."""
     def __init__(self, filepath, headers):
         self.filepath = filepath
-        self.headers = headers
+        self.headers = [h.strip() for h in headers]  # Normalize whitespace
+        self.header_map = {h.lower(): h for h in self.headers}  # Case-insensitive map
         self.workbook = openpyxl.Workbook()
         self.sheet = self.workbook.active
         self.sheet.title = "ServiceNow Import"
@@ -60,26 +57,29 @@ class ExcelWriter:
         log_info(logger, f"ExcelWriter initialized for {filepath}")
 
     def add_row(self, data_dict):
-        """Appends a single row of data, sanitizing and ordering it correctly."""
-        # Ensure row data is in the same order as headers
-        row_data = [sanitize_for_excel(data_dict.get(header, "")) for header in self.headers]
+        row_data = []
+        for header in self.headers:
+            value = ""
+            for key in (header, header.lower(), header.strip(), header.replace(" ", "_")):
+                if key in data_dict:
+                    value = sanitize_for_excel(data_dict[key])
+                    break
+            row_data.append(value)
+
         self.sheet.append(row_data)
 
-        # Apply conditional formatting based on status
         status = data_dict.get('processing_status', 'Success')
         fill_color = None
         if status == 'Needs Review': fill_color = NEEDS_REVIEW_FILL
         elif status == 'OCR Required': fill_color = OCR_FILL
         elif status == 'Failed': fill_color = FAILED_FILL
-        
+
         apply_styles_to_row(self.sheet[self.sheet.max_row], fill_color)
 
     def save(self):
-        """Applies final styling and saves the workbook."""
         try:
             finalize_styles(self.sheet)
         except Exception as e:
-            # Log but continue so saving still runs
             log_error(logger, f"Failed applying final Excel styles: {e}")
 
         try:

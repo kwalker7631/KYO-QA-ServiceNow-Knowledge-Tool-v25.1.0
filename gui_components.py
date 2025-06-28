@@ -1,59 +1,97 @@
-# gui_components.py
-from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel
-from PySide6.QtCore import QTimer, Qt
-import random
+# KYO QA GUI REFACTOR - IMPROVED NAV + FEEDBACK
+import sys, os
+from pathlib import Path
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
+    QFileDialog, QProgressBar, QTextEdit, QMessageBox, QHBoxLayout, QGroupBox
+)
+from PySide6.QtCore import Qt
 
-class RudeButton(QPushButton):
-    def __init__(self, text, parent=None):
-        super().__init__(text, parent)
-        self.original_text = text
-        self.is_animating = False
-        self.animation_frames = ["┌П┐(•_•)", "┌П┐(¬_¬)", "┌П┐(°_°)", "┌П┐(>_<)"]
-        self.animation_timer = QTimer(self)
-        self.animation_timer.timeout.connect(self._animate_step)
-        self.stop_timer = QTimer(self)
-        self.stop_timer.setSingleShot(True)
-        self.stop_timer.timeout.connect(self.stop_animation)
+from processing_engine import process_folder, process_zip_archive
+from logging_utils import setup_logger
 
-    def start_animation(self):
-        if self.is_animating: return
-        self.is_animating = True
-        self.setStyleSheet("background-color: #E31A2F; color: white;")
-        self.animation_timer.start(100)
-        self.stop_timer.start(5000)
+logger = setup_logger("gui")
 
-    def _animate_step(self):
-        if not self.is_animating: return
-        self.setText(random.choice(self.animation_frames))
+class QAApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("KYO QA Knowledge Tool")
+        self.setGeometry(200, 200, 800, 500)
+        self._build_ui()
 
-    def stop_animation(self):
-        self.is_animating = False
-        self.animation_timer.stop()
-        self.setStyleSheet("")
-        self.setText(self.original_text)
+    def _build_ui(self):
+        central = QWidget()
+        layout = QVBoxLayout()
 
-class StatusIndicator(QFrame):
-    def __init__(self, label_text, icon_char, color, parent=None):
-        super().__init__(parent)
-        self.count = 0
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 5, 10, 5)
-        self.icon_label = QLabel(icon_char)
-        self.icon_label.setStyleSheet(f"color: {color}; font-size: 24px;")
-        self.icon_label.setAlignment(Qt.AlignCenter)
-        self.text_label = QLabel(label_text)
-        self.text_label.setAlignment(Qt.AlignCenter)
-        self.count_label = QLabel(str(self.count))
-        self.count_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        self.count_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.count_label)
-        layout.addWidget(self.icon_label)
-        layout.addWidget(self.text_label)
+        # File Selection Buttons
+        file_group = QGroupBox("Select Files to Process")
+        fg_layout = QHBoxLayout()
 
-    def increment(self):
-        self.count += 1
-        self.count_label.setText(str(self.count))
+        self.folder_btn = QPushButton("Select Folder")
+        self.folder_btn.clicked.connect(self.select_folder)
+        fg_layout.addWidget(self.folder_btn)
 
-    def reset(self):
-        self.count = 0
-        self.count_label.setText(str(self.count))
+        self.zip_btn = QPushButton("Select ZIP File")
+        self.zip_btn.clicked.connect(self.select_zip)
+        fg_layout.addWidget(self.zip_btn)
+
+        self.excel_btn = QPushButton("Select Excel File")
+        self.excel_btn.clicked.connect(self.select_excel)
+        fg_layout.addWidget(self.excel_btn)
+
+        file_group.setLayout(fg_layout)
+        layout.addWidget(file_group)
+
+        # Status Box
+        self.status_box = QTextEdit()
+        self.status_box.setReadOnly(True)
+        layout.addWidget(QLabel("Process Log:"))
+        layout.addWidget(self.status_box)
+
+        # Progress
+        self.progress = QProgressBar()
+        layout.addWidget(self.progress)
+
+        central.setLayout(layout)
+        self.setCentralWidget(central)
+
+    def select_folder(self):
+        path = QFileDialog.getExistingDirectory(self, "Choose Folder")
+        if path:
+            self.log(f"Selected folder: {path}")
+            # Here you would call: process_folder(path, ...)
+
+    def select_zip(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose ZIP", filter="Zip files (*.zip)")
+        if path:
+            self.log(f"Selected ZIP: {path}")
+            # Here you would call: process_zip_archive(path, ...)
+
+    def select_excel(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose Excel File", filter="Excel (*.xlsx *.xls)")
+        if path:
+            self.log(f"Selected Excel: {path}")
+            self.show_headers(path)
+
+    def show_headers(self, xlsx_path):
+        try:
+            import pandas as pd
+            df = pd.read_excel(xlsx_path, engine="openpyxl")
+            headers = list(df.columns)
+            self.log(f"Headers Found: {headers}")
+        except Exception as e:
+            self.show_error("Header Read Error", f"Failed to read headers: {e}")
+
+    def log(self, message):
+        self.status_box.append(message)
+        logger.info(message)
+
+    def show_error(self, title, message):
+        QMessageBox.critical(self, title, message)
+        logger.error(f"{title}: {message}")
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    win = QAApp()
+    win.show()
+    sys.exit(app.exec())

@@ -24,11 +24,11 @@ if exist "C:\Program Files\Tesseract-OCR\tesseract.exe" (
 )
 echo.
 
-echo --- Environment check passed. Starting Python setup... ---
+echo --- Environment check passed. Starting tool... ---
 echo.
 
-:: This is the corrected line. We now call the advanced launcher.
-py.exe start_tool.py
+:: Launch the auto-installer + app bootstrap
+py start_tool.py
 
 :end_script
 echo --------------------------------------------------------
