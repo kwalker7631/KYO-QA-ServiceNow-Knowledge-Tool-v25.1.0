@@ -215,6 +215,7 @@ class QAApp(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = QAApp()
+
     win.show()
     sys.exit(app.exec())
 

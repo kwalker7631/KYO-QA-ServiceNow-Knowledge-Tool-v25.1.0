@@ -5,6 +5,8 @@ import inspect
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+# ruff: noqa: E402
+
 # Stub heavy dependencies if missing
 for mod in ('pandas', 'fitz'):
     if mod not in sys.modules:

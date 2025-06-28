@@ -2,21 +2,11 @@ import sys
 import types
 from pathlib import Path
 
+# ruff: noqa: E402
+
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
-class DummyButton:
-    def __init__(self):
-        self.enabled = False
-
-    def setEnabled(self, val):
-        self.enabled = val
-
-    def isEnabled(self):
-        return self.enabled
-
-
-# Minimal PySide6 stubs
 class DummyButton:
     def __init__(self):
         self.enabled = False
@@ -31,8 +21,11 @@ if 'PySide6' not in sys.modules:
     qtcore = types.ModuleType('PySide6.QtCore')
     qtgui = types.ModuleType('PySide6.QtGui')
 
-    class QApplication: pass
-    class QMainWindow: pass
+    class QApplication:
+        pass
+
+    class QMainWindow:
+        pass
     qtwidgets.QApplication = QApplication
     qtwidgets.QMainWindow = QMainWindow
     qtwidgets.QWidget = object
