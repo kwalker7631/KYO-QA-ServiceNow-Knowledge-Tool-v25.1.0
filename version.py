@@ -6,3 +6,4 @@ def get_version() -> str:
     """Return the current version string."""
     return VERSION
 
+main

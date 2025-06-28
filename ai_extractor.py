@@ -7,8 +7,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal
 
-from processing_engine import process_folder, process_zip_archive
 from logging_utils import setup_logger
+from data_harvesters import ai_extract
+from extract.common import bulletproof_extraction
 
 logger = setup_logger("gui")
 
@@ -25,10 +26,28 @@ class Worker(QThread):
 
     def run(self):
         try:
+            from processing_engine import process_folder, process_zip_archive
+
             if self.mode == 'folder':
-                _, updated, failed = process_folder(self.path, self.kb_path, self.progress_cb, self.status_cb, self.ocr_cb, self.review_cb, self.cancel_flag)
+                _, updated, failed = process_folder(
+                    self.path,
+                    self.kb_path,
+                    self.progress_cb,
+                    self.status_cb,
+                    self.ocr_cb,
+                    self.review_cb,
+                    self.cancel_flag,
+                )
             elif self.mode == 'zip':
-                _, updated, failed = process_zip_archive(self.path, self.kb_path, self.progress_cb, self.status_cb, self.ocr_cb, self.review_cb, self.cancel_flag)
+                _, updated, failed = process_zip_archive(
+                    self.path,
+                    self.kb_path,
+                    self.progress_cb,
+                    self.status_cb,
+                    self.ocr_cb,
+                    self.review_cb,
+                    self.cancel_flag,
+                )
             else:
                 updated, failed = 0, 0
             self.finished.emit(f"Updated: {updated}, Failed: {failed}")

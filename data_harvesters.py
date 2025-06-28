@@ -6,6 +6,7 @@ from config import (
     DATE_PATTERNS,
     SUBJECT_PATTERNS,
     APP_SOFTWARE_PATTERNS,
+    MODEL_PATTERNS,
 )
 from extract.common import clean_text_for_extraction, bulletproof_extraction
 
@@ -28,6 +29,8 @@ def ai_extract(text: str, pdf_path):
         supplemental_data = harvest_metadata(cleaned_text, pdf_path)
         data["published_date"] = data.get("published_date") or supplemental_data.get("published_date", "")
         data["author"] = data.get("author") or supplemental_data.get("author", STANDARDIZATION_RULES["default_author"])
+        if (not data.get("models") or data["models"] == "Not Found") and supplemental_data.get("models"):
+            data["models"] = supplemental_data["models"]
 
         data["subject"] = harvest_subject(cleaned_text, data.get("full_qa_number"))
         data["document_type"] = identify_document_type(cleaned_text)
@@ -81,11 +84,15 @@ def harvest_subject(text: str, qa_number: str | None = None) -> str:
 
 
 def harvest_metadata(text: str, pdf_path=None) -> dict:
-    """Extract supplemental metadata like dates and authors."""
+    """Extract supplemental metadata like dates, authors and models."""
     from ocr_utils import get_pdf_metadata
 
     pdf_metadata = get_pdf_metadata(pdf_path) if pdf_path else {}
-    results = {"published_date": "", "author": STANDARDIZATION_RULES["default_author"]}
+    results = {
+        "published_date": "",
+        "author": STANDARDIZATION_RULES["default_author"],
+        "models": "",
+    }
     for pattern in DATE_PATTERNS:
         pub_regex = rf"(?:published|issue(?:d)?|publication|revision\s*date)[^\n:]*[:\s]*({pattern})"
         pub_match = re.search(pub_regex, text, re.IGNORECASE)
@@ -102,6 +109,13 @@ def harvest_metadata(text: str, pdf_path=None) -> dict:
         results["author"] = author_match.group(1).strip()
     elif pdf_metadata.get("author"):
         results["author"] = pdf_metadata["author"]
+
+    for pattern in MODEL_PATTERNS:
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if match:
+            results["models"] = re.sub(r"\s+", " ", match.group(1)).strip(" ,-")
+            break
+
     return results
 
 
