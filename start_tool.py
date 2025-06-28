@@ -37,14 +37,11 @@ def check_and_install():
         except ImportError:
             install_package(pkg)
 
+
+def launch_application():
+    """Run the main GUI application."""
+    subprocess.run([sys.executable, "kyo_qa_tool_app.py"], check=True)
+
 if __name__ == "__main__":
     check_and_install()
-
-    # Late import now that all packages are ready
-    try:
-        from PyPDF2 import PdfReader
-    except ImportError:
-        print("[ERROR] PyPDF2 failed to import even after install.")
-
-    print("\n--- All dependencies satisfied. Launching app... ---\n")
-    subprocess.run([sys.executable, "kyo_qa_tool_app.py"], check=True)
+    launch_application()
