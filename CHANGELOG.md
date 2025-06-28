@@ -1,5 +1,8 @@
 # CHANGELOG
 
+## v25.0.1 (2025-06-28)
+-
+
 ## v25.0.0 (2025-06-26)
 - Updated docs and internal references to version 25.0.0.
 - Adjusted installer fallback version to ensure banner matches.

@@ -7,4 +7,4 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from version import VERSION, get_version
 
 def test_get_version():
-    assert get_version() == VERSION == "25.0.0"
+    assert get_version() == VERSION == "v25.0.1"
