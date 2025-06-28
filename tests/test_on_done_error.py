@@ -4,20 +4,33 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+
+class DummyButton:
+    def __init__(self):
+        self.enabled = False
+
+    def setEnabled(self, val):
+        self.enabled = val
+
+    def isEnabled(self):
+        return self.enabled
+
+
 # Minimal PySide6 stubs
+class DummyButton:
+    def __init__(self):
+        self.enabled = False
+    def setEnabled(self, val):
+        self.enabled = val
+    def isEnabled(self):
+        return self.enabled
+
 if 'PySide6' not in sys.modules:
     pyside6 = types.ModuleType('PySide6')
     qtwidgets = types.ModuleType('PySide6.QtWidgets')
     qtcore = types.ModuleType('PySide6.QtCore')
     qtgui = types.ModuleType('PySide6.QtGui')
 
-    class DummyButton:
-        def __init__(self):
-            self.enabled = False
-        def setEnabled(self, val):
-            self.enabled = val
-        def isEnabled(self):
-            return self.enabled
     class QApplication: pass
     class QMainWindow: pass
     qtwidgets.QApplication = QApplication
@@ -44,6 +57,19 @@ if 'PySide6' not in sys.modules:
     sys.modules['PySide6.QtGui'] = qtgui
 
 from kyo_qa_tool_app import QAApp
+from PySide6.QtCore import Qt
+from PySide6 import QtGui
+
+if not hasattr(Qt, "ArrowCursor"):
+    Qt.ArrowCursor = 0
+if QtGui.QCursor is object:
+    class _QCursor:
+        def __init__(self, *a, **k):
+            pass
+    QtGui.QCursor = _QCursor
+import kyo_qa_tool_app
+kyo_qa_tool_app.QCursor = QtGui.QCursor
+kyo_qa_tool_app.Qt = Qt
 
 
 def test_on_done_handles_error_message():

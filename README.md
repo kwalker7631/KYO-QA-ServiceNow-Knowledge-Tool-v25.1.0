@@ -103,8 +103,10 @@ cd KYO_QA_ServiceNow_Knowledge_Tool_v25.0.1
 ./scripts/setup_env.sh
 ```
 
-The test suite relies on these packages, so make sure to run the script before
-executing `pytest`.
+These commands install everything listed in `requirements.txt`, including
+heavier libraries like **PySide6** (for the GUI) and **PyMuPDF** (for PDF
+processing). The test suite will fail if these packages are missing, so run the
+script—or `pip install -r requirements.txt`—before executing `pytest`.
 
 ### Development and Testing
 After installing the dependencies, run the test suite with:
@@ -113,10 +115,10 @@ After installing the dependencies, run the test suite with:
 pytest -q
 ```
 
-The tests rely on `pandas`, `PyMuPDF`, and the rest of the packages listed in
-`requirements.txt`. If `PyMuPDF` is missing you will see import errors. As of
-v25.0.1, unused packages `xlsxwriter` and `halo` were removed to keep the
-environment lean.
+The tests rely on `pandas`, `PyMuPDF`, **PySide6**, and the rest of the packages
+listed in `requirements.txt`. If `PyMuPDF` or `PySide6` is missing you will see
+import errors. As of v25.0.1, unused packages `xlsxwriter` and `halo` were
+removed to keep the environment lean.
 
 ### 4. Versioning
 - This is the modular, logging-enabled release: **v25.0.1**
