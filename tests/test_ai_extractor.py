@@ -14,7 +14,7 @@ def test_ai_extract_basic(monkeypatch):
         "Model:\nTASKalfa 3005i\n"
     )
 
-    monkeypatch.setattr(ai_extractor, "harvest_metadata", lambda *a, **k: {
+    monkeypatch.setattr("data_harvesters.harvest_metadata", lambda *a, **k: {
         "published_date": "2024-01-01",
         "author": "Tester",
     })

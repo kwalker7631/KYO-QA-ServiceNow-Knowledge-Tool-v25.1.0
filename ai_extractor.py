@@ -11,9 +11,23 @@ from config import (
 )
 
 from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFileDialog,
+    QProgressBar,
+    QTextEdit,
+    QMessageBox,
+    QGroupBox,
+)
 
 from logging_utils import setup_logger
-from data_harvesters import ai_extract
+from data_harvesters import ai_extract, harvest_metadata
 from extract.common import bulletproof_extraction
 
 logger = setup_logger("gui")
@@ -175,4 +189,3 @@ if __name__ == "__main__":
     win = QAApp()
     win.show()
     sys.exit(app.exec())
-main
