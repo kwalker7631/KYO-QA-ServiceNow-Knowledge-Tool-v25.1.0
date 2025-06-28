@@ -1,10 +1,15 @@
-# KYO QA GUI REFACTOR - IMPROVED NAV + FEEDBACK
-import sys, os
+# KYO QA ServiceNow AI Extractor - HELPER FUNCTIONS
+import re
 from pathlib import Path
-from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
-    QFileDialog, QProgressBar, QTextEdit, QMessageBox, QHBoxLayout, QGroupBox
+
+from logging_utils import setup_logger, log_info, log_error
+from config import (
+    STANDARDIZATION_RULES,
+    DATE_PATTERNS,
+    SUBJECT_PATTERNS,
+    APP_SOFTWARE_PATTERNS,
 )
+
 from PySide6.QtCore import Qt, QThread, Signal
 
 from logging_utils import setup_logger
@@ -170,3 +175,4 @@ if __name__ == "__main__":
     win = QAApp()
     win.show()
     sys.exit(app.exec())
+main

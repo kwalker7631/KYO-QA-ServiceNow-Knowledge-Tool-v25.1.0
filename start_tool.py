@@ -1,6 +1,7 @@
 # start_tool.py — First-run Bootstrapper & Auto Dependency Installer
 import subprocess
 import sys
+from pathlib import Path
 import importlib
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ REQUIREMENTS_FILE = "requirements.txt"
 
 # Add user scripts directory to PATH if needed
 script_path = os.path.expanduser(r"~\AppData\Roaming\Python\Python311\Scripts")
+
 os.environ["PATH"] += os.pathsep + script_path
 
 def load_requirements():
@@ -30,6 +32,7 @@ def install_package(package):
 
 def check_and_install():
     print("\n--- Python Package Setup (auto-install on first run) ---")
+
     required_packages = load_requirements()
     for pkg in required_packages:
         try:
@@ -57,3 +60,4 @@ if __name__ == "__main__":
     print("\n--- All dependencies satisfied. Launching app... ---\n")
 main
     launch_application()
+main

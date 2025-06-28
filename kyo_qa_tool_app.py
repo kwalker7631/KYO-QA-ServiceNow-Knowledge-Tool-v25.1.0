@@ -6,8 +6,10 @@ from PySide6.QtWidgets import (
     QFileDialog, QProgressBar, QTextEdit, QMessageBox, QHBoxLayout, QGroupBox
 )
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QCursor
-
+try:
+    from PySide6.QtGui import QCursor
+except Exception:
+    QCursor = object
 from logging_utils import setup_logger
 
 
@@ -341,6 +343,7 @@ class QAApp(QMainWindow):
 
     def on_done(self, message):
         self.setCursor(QCursor(Qt.ArrowCursor))
+
         if str(message).startswith("Error:"):
             self.log(message)
             self.show_error("Processing Error", str(message))
@@ -354,4 +357,5 @@ class QAApp(QMainWindow):
             self.excel_btn.setEnabled(True)
             self.start_btn.setEnabled(True)
             self.log(message)
+main
 main
