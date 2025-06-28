@@ -6,6 +6,8 @@ from pathlib import Path
 # Ensure repository root is on the path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+# ruff: noqa: E402
+
 # Stub external dependencies if missing
 for mod in ('pandas', 'fitz'):
     if mod not in sys.modules:

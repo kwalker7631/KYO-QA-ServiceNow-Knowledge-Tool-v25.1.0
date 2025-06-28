@@ -52,6 +52,7 @@ if __name__ == "__main__":
     check_and_install()
 
     # Late import now that all packages are ready
+
     try:
         from PyPDF2 import PdfReader
     except ImportError:
@@ -59,4 +60,5 @@ if __name__ == "__main__":
 
     print("\n--- All dependencies satisfied. Launching app... ---\n")
     launch_application()
+
 

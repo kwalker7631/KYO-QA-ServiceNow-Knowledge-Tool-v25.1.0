@@ -28,4 +28,3 @@ def test_main_block_contains_launch_call():
     assert '\nmain\n' not in src
     start = src.index('if __name__ == "__main__"')
     assert 'launch_application()' in src[start:]
-

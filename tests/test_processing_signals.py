@@ -10,6 +10,8 @@ for mod in ('pandas', 'fitz'):
 import processing_engine
 from config import HEADER_MAPPING
 
+# ruff: noqa: E402
+
 
 class DummyEvent:
     def is_set(self):
