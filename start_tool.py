@@ -3,6 +3,7 @@ import subprocess
 import sys
 import importlib
 import os
+from pathlib import Path
 
 # Load required packages from external file
 REQUIREMENTS_FILE = "requirements.txt"
@@ -37,6 +38,13 @@ def check_and_install():
         except ImportError:
             install_package(pkg)
 
+
+def launch_application():
+
+    """Start the GUI application."""
+    script = str(Path.cwd() / "kyo_qa_tool_app.py")
+    subprocess.run([sys.executable, script], check=True)
+
 if __name__ == "__main__":
     check_and_install()
 
@@ -47,4 +55,5 @@ if __name__ == "__main__":
         print("[ERROR] PyPDF2 failed to import even after install.")
 
     print("\n--- All dependencies satisfied. Launching app... ---\n")
-    subprocess.run([sys.executable, "kyo_qa_tool_app.py"], check=True)
+main
+    launch_application()
