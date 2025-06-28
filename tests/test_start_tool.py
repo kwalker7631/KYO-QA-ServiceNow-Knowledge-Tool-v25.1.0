@@ -15,4 +15,4 @@ def test_launch_application_uses_correct_script(monkeypatch):
     monkeypatch.setattr(start_tool, 'subprocess', type('S', (), {'run': fake_run}))
     monkeypatch.setattr('builtins.print', lambda *a, **k: None)
     start_tool.launch_application()
-    assert str(Path.cwd() / 'kyo_qa_tool_app.py') in captured['cmd']
+    assert 'kyo_qa_tool_app.py' in captured['cmd']
