@@ -31,6 +31,11 @@ from PySide6.QtWidgets import (
     QGroupBox,
 )
 
+from logging_utils import setup_logger
+
+import data_harvesters
+from data_harvesters import harvest_metadata
+from extract.common import bulletproof_extraction
 logger = setup_logger("gui")
 
 def ai_extract(text: str, pdf_path):
