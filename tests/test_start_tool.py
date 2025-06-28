@@ -15,8 +15,8 @@ def test_launch_application_uses_correct_script(monkeypatch):
     monkeypatch.setattr(start_tool, 'subprocess', type('S', (), {'run': fake_run}))
     monkeypatch.setattr('builtins.print', lambda *a, **k: None)
     start_tool.launch_application()
-    assert 'kyo_qa_tool_app.py' in captured['cmd']
 
+    assert 'kyo_qa_tool_app.py' in captured['cmd']
 
 def test_main_block_contains_launch_call():
     src = Path(start_tool.__file__).read_text()
@@ -24,3 +24,4 @@ def test_main_block_contains_launch_call():
     assert '\nmain\n' not in src
     start = src.index('if __name__ == "__main__"')
     assert 'launch_application()' in src[start:]
+main

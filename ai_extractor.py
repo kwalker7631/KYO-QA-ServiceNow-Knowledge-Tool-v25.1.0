@@ -27,8 +27,10 @@ from PySide6.QtWidgets import (
 )
 
 from logging_utils import setup_logger
+
 import data_harvesters
 from data_harvesters import harvest_metadata
+main
 from extract.common import bulletproof_extraction
 
 logger = setup_logger("gui")
