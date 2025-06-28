@@ -217,5 +217,3 @@ if __name__ == "__main__":
     win = QAApp()
     win.show()
     sys.exit(app.exec())
-
-main

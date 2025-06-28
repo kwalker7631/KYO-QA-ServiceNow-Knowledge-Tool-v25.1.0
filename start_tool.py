@@ -55,7 +55,5 @@ if __name__ == "__main__":
     except ImportError:
         print("[ERROR] PyPDF2 failed to import even after install.")
 
-main
     print("\n--- All dependencies satisfied. Launching app... ---\n")
     launch_application()
-main
