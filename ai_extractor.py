@@ -11,12 +11,37 @@ from config import (
 )
 
 from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFileDialog,
+    QProgressBar,
+    QTextEdit,
+    QMessageBox,
+    QGroupBox,
+)
 
 from logging_utils import setup_logger
-from data_harvesters import ai_extract
+import data_harvesters
+from data_harvesters import harvest_metadata
 from extract.common import bulletproof_extraction
 
 logger = setup_logger("gui")
+
+def ai_extract(text: str, pdf_path):
+    """Wrapper that proxies to data_harvesters.ai_extract using this module's
+    harvest_metadata hook."""
+    orig = data_harvesters.harvest_metadata
+    data_harvesters.harvest_metadata = harvest_metadata
+    try:
+        return data_harvesters.ai_extract(text, pdf_path)
+    finally:
+        data_harvesters.harvest_metadata = orig
 
 class Worker(QThread):
     update_progress = Signal(int)
@@ -175,4 +200,3 @@ if __name__ == "__main__":
     win = QAApp()
     win.show()
     sys.exit(app.exec())
-main

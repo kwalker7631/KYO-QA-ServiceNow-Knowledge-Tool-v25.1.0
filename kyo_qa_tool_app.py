@@ -357,5 +357,3 @@ class QAApp(QMainWindow):
             self.excel_btn.setEnabled(True)
             self.start_btn.setEnabled(True)
             self.log(message)
-main
-main

@@ -28,9 +28,12 @@ if 'PySide6' not in sys.modules:
     qtcore.Signal = Signal
     qtcore.QThread = object
     qtcore.QTimer = object
-    qtcore.Qt = types.SimpleNamespace()
+    qtcore.Qt = types.SimpleNamespace(ArrowCursor=0)
 
-    qtgui.QCursor = object
+    class QCursor:
+        def __init__(self, *args, **kwargs):
+            pass
+    qtgui.QCursor = QCursor
 
     sys.modules['PySide6'] = pyside6
     sys.modules['PySide6.QtWidgets'] = qtwidgets

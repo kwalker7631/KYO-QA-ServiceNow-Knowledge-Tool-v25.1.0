@@ -5,19 +5,20 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 # Minimal PySide6 stubs
+class DummyButton:
+    def __init__(self):
+        self.enabled = False
+    def setEnabled(self, val):
+        self.enabled = val
+    def isEnabled(self):
+        return self.enabled
+
 if 'PySide6' not in sys.modules:
     pyside6 = types.ModuleType('PySide6')
     qtwidgets = types.ModuleType('PySide6.QtWidgets')
     qtcore = types.ModuleType('PySide6.QtCore')
     qtgui = types.ModuleType('PySide6.QtGui')
 
-    class DummyButton:
-        def __init__(self):
-            self.enabled = False
-        def setEnabled(self, val):
-            self.enabled = val
-        def isEnabled(self):
-            return self.enabled
     class QApplication: pass
     class QMainWindow: pass
     qtwidgets.QApplication = QApplication
