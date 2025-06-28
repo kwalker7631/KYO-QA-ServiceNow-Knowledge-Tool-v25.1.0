@@ -20,6 +20,19 @@ if 'PySide6' not in sys.modules:
     qtwidgets.QMessageBox = object
     qtwidgets.QGroupBox = object
 
+    class DummyButton:
+        def __init__(self):
+            self.enabled = False
+
+        def setEnabled(self, val):
+            self.enabled = val
+
+        def isEnabled(self):
+            return self.enabled
+
+    import builtins
+    builtins.DummyButton = DummyButton
+
     class Signal:
         def __init__(self, *a, **k):
             pass
@@ -34,6 +47,7 @@ if 'PySide6' not in sys.modules:
         def __init__(self, *args, **kwargs):
             pass
     qtgui.QCursor = QCursor
+main
 
     sys.modules['PySide6'] = pyside6
     sys.modules['PySide6.QtWidgets'] = qtwidgets

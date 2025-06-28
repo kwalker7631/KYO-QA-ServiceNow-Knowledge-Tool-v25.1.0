@@ -1,6 +1,5 @@
 # KYO QA GUI REFACTOR - IMPROVED NAV + FEEDBACK + ACTIVITY INDICATORS
-import sys, os
-from pathlib import Path
+import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
     QFileDialog, QProgressBar, QTextEdit, QMessageBox, QHBoxLayout, QGroupBox
@@ -220,4 +219,3 @@ if __name__ == "__main__":
     sys.exit(app.exec())
 
 main
-

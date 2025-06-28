@@ -1,6 +1,5 @@
-# KYO QA ServiceNow AI Extractor - HELPER FUNCTIONS
-import re
-from pathlib import Path
+"""Extraction entry points for QA knowledge tool."""
+
 
 from logging_utils import setup_logger, log_info, log_error
 from config import (
@@ -9,6 +8,16 @@ from config import (
     SUBJECT_PATTERNS,
     APP_SOFTWARE_PATTERNS,
 )
+from data_harvesters import (
+    harvest_metadata,
+    harvest_subject,
+    identify_document_type,
+)
+from extract.common import (
+    bulletproof_extraction,
+    clean_text_for_extraction,
+)
+
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
@@ -202,3 +211,4 @@ if __name__ == "__main__":
     win = QAApp()
     win.show()
     sys.exit(app.exec())
+main

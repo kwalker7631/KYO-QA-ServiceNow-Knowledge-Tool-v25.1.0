@@ -28,3 +28,12 @@ def test_ai_extract_basic(monkeypatch):
     assert result["published_date"] == "2024-01-01"
     assert result["document_type"] == "Service Bulletin"
 
+
+def test_reexport_functions():
+    from extract.common import bulletproof_extraction as common_bp
+
+    # bulletproof_extraction should be re-exported directly
+    assert ai_extractor.bulletproof_extraction is common_bp
+
+    # ai_extract should remain callable
+    assert callable(ai_extractor.ai_extract)
