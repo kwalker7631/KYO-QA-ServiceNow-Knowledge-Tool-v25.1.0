@@ -14,6 +14,13 @@ def test_harvest_metadata_finds_models(monkeypatch):
     assert result["full_qa_number"] == ""
 
 
+def test_harvest_metadata_includes_qa_numbers():
+    text = "Ref. No. AB-1234 (E22)\nModel:\nTASKalfa 2550ci"
+    result = harvest_metadata(text)
+    assert result["full_qa_number"] == "AB-1234"
+    assert result["short_qa_number"] == "E22"
+
+
 def test_ai_extract_uses_metadata_models(monkeypatch, tmp_path):
     monkeypatch.setattr(
         'data_harvesters.bulletproof_extraction',

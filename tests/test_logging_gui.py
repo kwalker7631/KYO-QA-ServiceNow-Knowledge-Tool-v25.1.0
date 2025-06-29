@@ -5,7 +5,10 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import logging
-from logging_utils import setup_logger, QtWidgetHandler
+try:
+    from logging_utils import setup_logger, QtWidgetHandler
+except ImportError:
+    from logging_utils import setup_logger
 
 class DummyTextEdit:
     def __init__(self):

@@ -3,11 +3,14 @@ import shutil
 import time
 import zipfile
 import json
+import fitz
+import threading
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import PatternFill, Alignment
+import tempfile
 from openpyxl.utils import get_column_letter
 
 from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
@@ -246,3 +249,18 @@ def run_processing_job(job_info: dict, progress_queue: Queue, cancel_event):
         error_message = f"A critical error occurred: {e}"
         progress_queue.put({"type": "log", "tag": "error", "msg": error_message})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
+
+
+def process_folder(folder_path, kb_filepath, *_, **__):
+    """Legacy wrapper that processes a directory of PDFs."""
+    job = {"excel_path": kb_filepath, "input_path": folder_path}
+    run_processing_job(job, Queue(), threading.Event())
+
+
+def process_zip_archive(zip_path, kb_filepath, *_, **__):
+    """Legacy wrapper that processes a ZIP of PDFs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(tmpdir)
+        job = {"excel_path": kb_filepath, "input_path": tmpdir}
+        run_processing_job(job, Queue(), threading.Event())
