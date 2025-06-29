@@ -11,7 +11,21 @@ LOG_DIR.mkdir(exist_ok=True)
 
 SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
 
-def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
+class QtWidgetHandler(logging.Handler):
+    """Simple handler that appends log messages to a text widget."""
+
+    def __init__(self, widget):
+        super().__init__()
+        self.widget = widget
+
+    def emit(self, record):  # pragma: no cover - simple UI helper
+        msg = self.format(record)
+        append = getattr(self.widget, "append", None)
+        if callable(append):
+            append(msg)
+
+
+def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logger:
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)-8s] [%(name)-20s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
@@ -33,7 +47,12 @@ def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
         root_logger.addHandler(console_handler)
         root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
     
-    return logging.getLogger(name)
+    logger = logging.getLogger(name)
+    if log_widget is not None:
+        widget_handler = QtWidgetHandler(log_widget)
+        widget_handler.setFormatter(formatter)
+        logger.addHandler(widget_handler)
+    return logger
 
 def log_info(logger: logging.Logger, message: str) -> None:
     logger.info(message)
