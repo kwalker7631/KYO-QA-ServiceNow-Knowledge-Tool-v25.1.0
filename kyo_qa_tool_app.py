@@ -13,6 +13,22 @@ from kyo_review_tool import ReviewWindow
 from version import VERSION
 import logging_utils
 
+
+def gui_callback(func):
+    """Decorator to log unexpected GUI errors and show a simple dialog."""
+
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except Exception as exc:  # pragma: no cover - defensive
+            logging_utils.log_exception(logger, f"GUI error in {func.__name__}")
+            messagebox.showerror(
+                "Unexpected Error",
+                "Something went wrong. Please check the log for details.",
+            )
+
+    return wrapper
+
 logger = logging_utils.setup_logger("app")
 
 class KyoQAToolApp(tk.Tk):
@@ -204,13 +220,19 @@ class QAApp(KyoQAToolApp):
         for tag, color_key in [("info", "accent_blue"), ("success", "success_green"), ("warning", "warning_yellow"), ("error", "kyocera_red")]:
             self.log_text.tag_configure(tag, foreground=BRAND_COLORS[color_key])
 
+    @gui_callback
     def start_processing(self, job_request=None, is_rerun=False):
-        if self.is_processing: return
+        if self.is_processing:
+            return
         if not job_request:
             input_path = self.selected_folder.get() or self.selected_files_list
-            if not input_path: messagebox.showwarning("Input Missing", "Please select files or a folder."); return
+            if not input_path:
+                messagebox.showwarning("Input Missing", "Please select files or a folder.")
+                return
             excel_path = self.selected_excel.get()
-            if not excel_path: messagebox.showwarning("Input Missing", "Please select a base Excel file."); return
+            if not excel_path:
+                messagebox.showwarning("Input Missing", "Please select a base Excel file.")
+                return
             job_request = {"excel_path": excel_path, "input_path": input_path}
             self.last_run_info = job_request
         job_request["is_rerun"] = is_rerun
@@ -218,15 +240,33 @@ class QAApp(KyoQAToolApp):
         self.update_ui_for_processing_start()
         self.log_message("Starting processing job...", "info")
         self.start_time = time.time()
-        self.processing_thread = threading.Thread(target=run_processing_job, args=(job_request, self.response_queue, self.cancel_event), daemon=True)
+        self.processing_thread = threading.Thread(
+            target=self.run_job_with_error_handling,
+            args=(job_request,),
+            daemon=True,
+        )
         self.processing_thread.start()
 
+    def run_job_with_error_handling(self, job_request):
+        """Run processing job safely inside a worker thread."""
+        try:
+            run_processing_job(job_request, self.response_queue, self.cancel_event)
+        except Exception as exc:  # pragma: no cover - defensive
+            logging_utils.log_exception(logger, "Processing job failed")
+            messagebox.showerror(
+                "Processing Error",
+                "Processing failed. Please check the log for details.",
+            )
+            self.response_queue.put({"type": "finish", "status": f"Error: {exc}"})
+
+    @gui_callback
     def stop_processing(self):
         if not self.is_processing: return
         if messagebox.askokcancel("Stop Process", "Are you sure you want to stop the current process?"):
             self.log_message("Stopping process...", "warning")
             self.cancel_event.set()
 
+    @gui_callback
     def toggle_pause(self):
         if not self.is_processing: return
         self.is_paused = not self.is_paused
@@ -239,6 +279,7 @@ class QAApp(KyoQAToolApp):
             self.pause_btn.config(text="⏯️ Pause")
             self.log_message("Processing resumed.", "info")
 
+    @gui_callback
     def rerun_flagged_job(self):
         if not self.reviewable_files:
             messagebox.showwarning("No Files to Re-run", "There are no files currently flagged for review.")
@@ -257,6 +298,7 @@ class QAApp(KyoQAToolApp):
         else:
             self.review_file_btn.config(state=tk.DISABLED)
 
+    @gui_callback
     def open_review_for_selected_file(self):
         selected_item = self.review_tree.focus()
         if not selected_item:
@@ -269,6 +311,7 @@ class QAApp(KyoQAToolApp):
         else:
             messagebox.showerror("Error", "Could not find the details for the selected file.")
 
+    @gui_callback
     def open_pattern_manager(self):
         dialog = tk.Toplevel(self)
         dialog.title("Pattern Manager")
@@ -387,6 +430,7 @@ class QAApp(KyoQAToolApp):
         except Exception as e:
             print(f"Failed to log message: {e}")
 
+    @gui_callback
     def on_closing(self):
         if self.is_processing:
             if messagebox.askyesno("Confirm Exit", "Are you sure you want to exit while a process is running?"):
@@ -396,12 +440,14 @@ class QAApp(KyoQAToolApp):
             self.destroy()
         cleanup_temp_files()
         
+    @gui_callback
     def browse_excel(self):
         path = filedialog.askopenfilename(title="Select ServiceNow Excel File to Clone", filetypes=[("Excel Files", "*.xlsx")])
         if path:
             self.selected_excel.set(path)
         self.update_start_button_state()
             
+    @gui_callback
     def browse_folder(self):
         path = filedialog.askdirectory(title="Select Folder Containing PDFs")
         if path:
@@ -410,6 +456,7 @@ class QAApp(KyoQAToolApp):
             self.files_label.config(text="0 files selected")
         self.update_start_button_state()
     
+    @gui_callback
     def browse_files(self):
         paths = filedialog.askopenfilenames(title="Select PDF or ZIP Files", filetypes=[("PDF/ZIP Files", "*.pdf *.zip")])
         if paths:
@@ -420,6 +467,7 @@ class QAApp(KyoQAToolApp):
 #==============================================================
 # --- THIS METHOD WAS MISSING ---
 #==============================================================
+    @gui_callback
     def open_result(self):
         """Opens the last generated Excel file with the default application."""
         if self.result_file_path and Path(self.result_file_path).exists():
