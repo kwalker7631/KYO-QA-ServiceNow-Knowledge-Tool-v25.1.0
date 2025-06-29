@@ -6,12 +6,39 @@ from pathlib import Path
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
+__all__ = [
+    "setup_logger",
+    "QtWidgetHandler",
+    "log_info",
+    "log_error",
+    "log_warning",
+    "log_exception",
+    "create_success_log",
+    "create_failure_log",
+]
+
 LOG_DIR = Path.cwd() / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
 
-def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
+
+class QtWidgetHandler(logging.Handler):
+    """Logging handler that appends formatted records to a QTextEdit."""
+
+    def __init__(self, widget) -> None:
+        super().__init__()
+        self.widget = widget
+
+    def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - GUI
+        try:
+            msg = self.format(record)
+            if hasattr(self.widget, "append"):
+                self.widget.append(msg)
+        except Exception:
+            pass
+
+def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logger:
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)-8s] [%(name)-20s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
@@ -22,18 +49,27 @@ def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
         root_logger.setLevel(level)
         file_handler = RotatingFileHandler(
             SESSION_LOG_FILE,
-            maxBytes=10*1024*1024,
+            maxBytes=10 * 1024 * 1024,
             backupCount=5,
-            encoding="utf-8"
+            encoding="utf-8",
         )
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
-        root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
-    
-    return logging.getLogger(name)
+        root_logger.info(
+            f"Logging initialized for session. Log file: {SESSION_LOG_FILE}"
+        )
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    if log_widget and not any(isinstance(h, QtWidgetHandler) for h in logger.handlers):
+        handler = QtWidgetHandler(log_widget)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
 
 def log_info(logger: logging.Logger, message: str) -> None:
     logger.info(message)

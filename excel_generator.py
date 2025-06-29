@@ -2,8 +2,26 @@
 from __future__ import annotations
 
 import pandas as pd
-from openpyxl.styles import Alignment, Font, PatternFill
-from openpyxl.formatting.rule import FormulaRule
+
+__all__ = ["ExcelWriter", "NEEDS_REVIEW_FILL", "FAILED_FILL"]
+try:
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.formatting.rule import FormulaRule
+except Exception:  # pragma: no cover - openpyxl may be missing
+    Alignment = object
+
+    class Font:  # type: ignore
+        def __init__(self, *a, **k):
+            pass
+
+    class PatternFill:  # type: ignore
+        def __init__(self, *a, **k):
+            self.start_color = self.end_color = ""
+            self.fill_type = None
+
+    class FormulaRule:  # type: ignore
+        def __init__(self, *a, **k):
+            pass
 import re
 
 from logging_utils import setup_logger, log_info, log_error
@@ -115,6 +133,24 @@ def apply_excel_styles(worksheet, df):
                 fill=FAILED_FILL,
             ),
         )
+
+
+class ExcelWriter:
+    """Lightweight Excel writer used in tests."""
+
+    def __init__(self, path: str, headers: list[str]):
+        self.path = path
+        self.headers = headers
+        self.rows: list[dict] = []
+
+    def add_row(self, data: dict) -> None:
+        self.rows.append(data)
+
+    def save(self) -> None:
+        df = pd.DataFrame(self.rows, columns=self.headers)
+        with pd.ExcelWriter(self.path, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="ServiceNow Import")
+            apply_excel_styles(writer.sheets["ServiceNow Import"], df)
 
 
 def generate_excel(all_results, output_path, template_path):
