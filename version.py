@@ -1,9 +1,3 @@
-# KYO QA Knowledge Tool Versioning
-
-VERSION = "v25.0.1"
-
-
-def get_version() -> str:
-    """Return the current version string."""
-    return VERSION
-
+# version.py
+# This is the single source of truth for the application's version number.
+VERSION = "24.0.6"

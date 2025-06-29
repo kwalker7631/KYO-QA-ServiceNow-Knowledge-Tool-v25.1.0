@@ -1,12 +1,4 @@
-"""Extraction entry points for QA knowledge tool."""
+"""Convenience wrapper to expose AI extraction helpers."""
+from data_harvesters import ai_extract  # re-export for existing imports
 
-def ai_extract(text: str, pdf_path):
-    """Proxy to :func:`data_harvesters.ai_extract`. Any caller can monkeypatch
-    ``data_harvesters.harvest_metadata`` before invoking this helper to adjust
-    metadata extraction."""
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    win = QAApp()
-    win.show()
-    sys.exit(app.exec())
+__all__ = ["ai_extract"]

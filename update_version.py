@@ -1,114 +1,54 @@
-# KYO QA ServiceNow Version Updater
-# Run this script to update the version number across all files
-
-import os
+# update_version.py
 import re
-from datetime import datetime
-import sys
+from pathlib import Path
 
-# Files that should have the version string updated
+# --- Configuration ---
+# Add any new files that contain the version number to this list.
 FILES_TO_UPDATE = [
-    "version.py",
-    "ai_extractor.py",
-    "custom_exceptions.py",
-    "data_harvesters.py",
-    "excel_generator.py",
-    "file_utils.py",
-    "kyo_qa_tool_app.py",
-    "logging_utils.py",
-    "ocr_utils.py",
-    "processing_engine.py",
-    "README.md",
     "start_tool.py",
-    "START.bat",
+    "kyo_qa_tool_app.py",
+    "README.md",
+    # Add other files like CHANGELOG.md if needed
 ]
 
-def update_version(old_version, new_version, files_to_update=FILES_TO_UPDATE):
-    """Update the version number in all files."""
-    print(f"Updating version from {old_version} to {new_version}")
+def get_current_version():
+    """Reads the version from the single source of truth: version.py"""
+    version_file = Path("version.py").read_text()
+    match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", version_file)
+    if not match:
+        raise RuntimeError("Could not find version in version.py")
+    return match.group(1)
+
+def update_files(new_version):
+    """Updates the version number in the specified list of files."""
+    print(f"Updating files to version: {new_version}\n")
     
-    # Regular expressions for updating different file types
-    version_patterns = {
-        ".py": [
-            (fr'VERSION = "{old_version}"', fr'VERSION = "{new_version}"'),
-            (fr"VERSION = '{old_version}'", fr"VERSION = '{new_version}'"),
-            (fr'v{old_version[1:]}', fr'v{new_version[1:]}')  # Without the 'v'
-        ],
-        ".md": [
-            (fr'{old_version}', fr'{new_version}')
-        ],
-        ".bat": [
-            (fr'{old_version}', fr'{new_version}')
-        ]
-    }
-    
-    # Count of files updated
-    files_updated = 0
-    
-    # Update each file
-    for filename in files_to_update:
-        if not os.path.exists(filename):
-            print(f"WARNING: {filename} not found, skipping")
+    # Pattern to find 'v' followed by an old version number, e.g., v24.0.6
+    # This is flexible and will match different version numbers.
+    version_pattern = re.compile(r'(v)\d+\.\d+\.\d+')
+
+    for filename in FILES_TO_UPDATE:
+        file_path = Path(filename)
+        if not file_path.exists():
+            print(f"⚠️  Skipping: {filename} (not found)")
             continue
-            
-        # Determine file extension
-        _, ext = os.path.splitext(filename)
         
-        # Read file content
-        with open(filename, 'r', encoding='utf-8') as file:
-            content = file.read()
+        content = file_path.read_text(encoding='utf-8')
         
-        # Apply version replacements based on file type
-        original_content = content
-        patterns = version_patterns.get(ext, [])
-        for pattern, replacement in patterns:
-            content = re.sub(pattern, replacement, content)
-        
-        # Only write if content changed
-        if content != original_content:
-            with open(filename, 'w', encoding='utf-8') as file:
-                file.write(content)
-            print(f"Updated {filename}")
-            files_updated += 1
+        # Replace old version with new one using the pattern
+        new_content, num_replacements = version_pattern.sub(f'v{new_version}', content)
+
+        if num_replacements > 0:
+            file_path.write_text(new_content, encoding='utf-8')
+            print(f"✅ Updated {filename}")
         else:
-            print(f"No changes needed in {filename}")
-    
-    # Special handling for CHANGELOG.md
-    changelog_file = "CHANGELOG.md"
-    if os.path.exists(changelog_file):
-        with open(changelog_file, 'r', encoding='utf-8') as file:
-            content = file.read()
-        
-        today = datetime.now().strftime("%Y-%m-%d")
-        new_changelog_entry = f"## {new_version} ({today})\n- \n\n"
-        
-        # Add new version at the top of the changelog
-        if "# CHANGELOG" in content:
-            content = content.replace("# CHANGELOG\n\n", f"# CHANGELOG\n\n{new_changelog_entry}")
-        else:
-            content = f"# CHANGELOG\n\n{new_changelog_entry}\n" + content
-        
-        with open(changelog_file, 'w', encoding='utf-8') as file:
-            file.write(content)
-        print(f"Updated {changelog_file}")
-        files_updated += 1
-    
-    print(f"\nVersion update complete! {files_updated} files updated.")
-    print(f"Don't forget to rename your installation folder to: KYO_QA_ServiceNow_Tool_{new_version}/")
+            print(f"ℹ️  No version string found to update in {filename}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python update_version.py old_version new_version")
-        print("Example: python update_version.py v25.0.0 v25.0.1")
-        sys.exit(1)
-        
-    old_version = sys.argv[1]
-    new_version = sys.argv[2]
-    
-    # Validate version format
-    if not re.match(r'^v\d+\.\d+\.\d+$', old_version) or not re.match(r'^v\d+\.\d+\.\d+$', new_version):
-        print("Error: Version numbers must be in the format vYY.Minor.Patch")
-        print("Example: v25.0.0")
-        sys.exit(1)
-        
-    update_version(old_version, new_version)
+    try:
+        version = get_current_version()
+        print(f"Found current version in version.py: {version}")
+        update_files(version)
+        print("\nVersioning update complete!")
+    except Exception as e:
+        print(f"\nAn error occurred: {e}")

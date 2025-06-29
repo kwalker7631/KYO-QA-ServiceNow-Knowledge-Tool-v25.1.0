@@ -1,17 +1,7 @@
-# Requirements for KYO QA Knowledge Tool
-pandas
-openpyxl
-pytesseract
-PySide6
-xlrd
-python-docx
-numpy
-pdf2image
-pdfminer.six
-regex
-requests
-PyPDF2>=3.0.1
-PyMuPDF
-python-dateutil
-Pillow
-ollama
+pandas>=2.2.2
+PyMuPDF>=1.24.3
+openpyxl>=3.1.2
+Pillow>=10.3.0
+pytesseract>=0.3.11
+colorama>=0.4.6
+python-dateutil>=2.9.0
