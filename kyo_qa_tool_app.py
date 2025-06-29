@@ -7,7 +7,6 @@ import queue
 import time
 
 from config import BRAND_COLORS
-from processing_engine import run_processing_job
 from file_utils import open_file, ensure_folders, cleanup_temp_files
 from kyo_review_tool import ReviewWindow
 from version import VERSION

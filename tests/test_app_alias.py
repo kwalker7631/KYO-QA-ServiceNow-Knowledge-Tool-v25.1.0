@@ -27,6 +27,8 @@ if 'openpyxl' not in sys.modules:
     openpyxl.utils = utils
     sys.modules['openpyxl'] = openpyxl
     sys.modules['openpyxl.styles'] = styles
+    sys.modules['openpyxl.formatting'] = formatting
+    sys.modules['openpyxl.formatting.rule'] = rule_mod
     sys.modules['openpyxl.utils'] = utils
     sys.modules['openpyxl.formatting'] = formatting
     sys.modules['openpyxl.formatting.rule'] = rule
