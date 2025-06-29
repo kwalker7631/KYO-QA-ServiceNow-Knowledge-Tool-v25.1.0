@@ -7,26 +7,20 @@ import types
 if 'openpyxl' not in sys.modules:
     openpyxl = types.ModuleType('openpyxl')
     styles = types.ModuleType('styles')
-    class _PF:
+    class Dummy:
         def __init__(self, *a, **k):
             pass
-    class _AL:
-        def __init__(self, *a, **k):
-            pass
-    class _FT:
-        def __init__(self, *a, **k):
-            pass
-    styles.PatternFill = _PF
-    styles.Alignment = _AL
-    styles.Font = _FT
-    formatting = types.ModuleType('formatting')
-    rule_mod = types.ModuleType('rule')
-    class _FR:
-        def __init__(self, *a, **k):
-            pass
-    rule_mod.FormulaRule = _FR
-    formatting.rule = rule_mod
+
+    styles.PatternFill = Dummy
+    styles.Alignment = Dummy
+    styles.Font = Dummy
     openpyxl.styles = styles
+    openpyxl.Workbook = Dummy
+    openpyxl.load_workbook = lambda *a, **k: Dummy()
+    formatting = types.ModuleType('formatting')
+    rule = types.ModuleType('rule')
+    rule.FormulaRule = Dummy
+    formatting.rule = rule
     openpyxl.formatting = formatting
     utils = types.ModuleType('utils')
     utils.get_column_letter = lambda x: x
@@ -36,6 +30,8 @@ if 'openpyxl' not in sys.modules:
     sys.modules['openpyxl.formatting'] = formatting
     sys.modules['openpyxl.formatting.rule'] = rule_mod
     sys.modules['openpyxl.utils'] = utils
+    sys.modules['openpyxl.formatting'] = formatting
+    sys.modules['openpyxl.formatting.rule'] = rule
 
 import kyo_qa_tool_app
 
