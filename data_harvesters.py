@@ -121,16 +121,13 @@ def harvest_author(text: str) -> str:
 
 def harvest_metadata(text: str) -> dict:
     """Extract key metadata like models and QA numbers from raw text."""
-
     models = sorted(harvest_models_from_text(text))
     full_qa = harvest_qa_number(text)
     short_qa = harvest_short_qa_number(full_qa)
     published_date = harvest_date(text)
     subject = harvest_subject(text)
     author = harvest_author(text)
-
     models_str = ", ".join(models) if models else "Not Found"
-
     return {
         "models": models_str,
         "full_qa_number": full_qa,
@@ -139,7 +136,6 @@ def harvest_metadata(text: str) -> dict:
         "subject": subject if subject else "No Subject Found",
         "author": author,
     }
-
 
 def ai_extract(text: str, pdf_path: Path) -> dict:
     """High-level extraction helper used by the processing engine."""

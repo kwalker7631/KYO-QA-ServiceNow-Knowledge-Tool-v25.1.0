@@ -190,9 +190,8 @@ def run_processing_job(job_info: dict, progress_queue: Queue, cancel_event):
                     meta_cell = sheet.cell(row=row_idx, column=meta_col_idx)
                     author_cell = sheet.cell(row=row_idx, column=author_col_idx)
                     status_cell = sheet.cell(row=row_idx, column=status_col_idx)
-                    if meta_cell.value is None or str(meta_cell.value).strip() in ["", "Review Needed"]:
-                        meta_cell.value = data["models"]
-                        updates_made += 1
+                    meta_cell.value = data["models"]
+                    updates_made += 1
                     author_cell.value = data.get("author", "")
                     status_cell.value = f"{data['status']}{' (OCR)' if data['ocr_used'] else ''}"
                     pdfs_found_in_sheet.add(filename)
