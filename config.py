@@ -76,3 +76,10 @@ STANDARDIZATION_RULES = {
 
 # --- EXCEL GENERATION ---
 META_COLUMN_NAME = "Meta"
+
+# Minimal mapping used by tests
+HEADER_MAPPING = {
+    "short_description": "Description",
+    "models": "Models",
+    "processing_status": "Processing Status",
+}

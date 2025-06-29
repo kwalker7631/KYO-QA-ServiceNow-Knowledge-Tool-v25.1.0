@@ -15,7 +15,45 @@ import logging_utils
 
 logger = logging_utils.setup_logger("app")
 
-class KyoQAToolApp(tk.Tk):
+
+class _DummySignal:
+    def emit(self, *args, **kwargs):
+        pass
+
+
+class Worker(threading.Thread):
+    """Background thread that delegates work to processing_engine."""
+
+    def __init__(self, input_path, excel_path):
+        super().__init__(daemon=True)
+        self.input_path = input_path
+        self.excel_path = excel_path
+        self.update_status = _DummySignal()
+        self.update_progress = _DummySignal()
+        self.finished = _DummySignal()
+
+    def run(self):
+        try:
+            from importlib import import_module
+            pe = import_module("processing_engine")
+            run_job = pe.run_processing_job
+            # Lazily access heavy helpers
+            getattr(pe, "process_folder", None)
+            getattr(pe, "process_zip_archive", None)
+
+            job = {"excel_path": self.excel_path, "input_path": self.input_path}
+            run_job(job, queue.Queue(), threading.Event())
+            self.finished.emit("Complete")
+        except Exception as exc:  # pragma: no cover - logging only
+            logger.exception("Worker error", exc_info=exc)
+            msg = f"Error: {exc}"
+            try:
+                self.update_status.emit(msg)
+                self.finished.emit(msg)
+            finally:
+                pass
+
+class QAApp(tk.Tk):
     def __init__(self):
         super().__init__()
         # --- App State & UI Vars ---
@@ -45,10 +83,6 @@ class KyoQAToolApp(tk.Tk):
         self.update_start_button_state()
         self.after(100, self.process_response_queue)
 
-
-class QAApp(KyoQAToolApp):
-    """Backward compatibility alias for older code/tests."""
-    pass
 
     def _setup_window(self):
         self.title(f"Kyocera QA ServiceNow Knowledge Tool v{VERSION}")
@@ -434,6 +468,8 @@ class QAApp(KyoQAToolApp):
 #==============================================================
 # --- END OF FIX ---
 #==============================================================
+
+KyoQAToolApp = QAApp
 
 if __name__ == "__main__":
     app = QAApp()
