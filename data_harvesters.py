@@ -7,9 +7,17 @@ import importlib
 from config import (
     MODEL_PATTERNS as DEFAULT_MODEL_PATTERNS,
     QA_NUMBER_PATTERNS as DEFAULT_QA_PATTERNS,
-    SHORT_QA_PATTERN, DATE_PATTERNS, SUBJECT_PATTERNS, 
-    STANDARDIZATION_RULES, AUTHOR_PATTERNS, UNWANTED_AUTHORS, EXCLUSION_PATTERNS
+    SHORT_QA_PATTERN,
+    DATE_PATTERNS,
+    SUBJECT_PATTERNS,
+    STANDARDIZATION_RULES,
+    AUTHOR_PATTERNS,
+    UNWANTED_AUTHORS,
+    EXCLUSION_PATTERNS,
 )
+
+from extract.common import clean_text_for_extraction, bulletproof_extraction
+from ocr_utils import get_pdf_metadata
 
 #==============================================================
 # --- NEW FEATURE: Dynamic Pattern Loading ---
@@ -109,6 +117,26 @@ def harvest_author(text: str) -> str:
             if author in UNWANTED_AUTHORS: return ""
             return author
     return ""
+
+
+def harvest_metadata(text: str) -> dict:
+    """Extract device models from raw text."""
+    models = sorted(harvest_models_from_text(text))
+    models_str = ", ".join(models) if models else "Not Found"
+    return {"models": models_str}
+
+
+def ai_extract(text: str, pdf_path: Path) -> dict:
+    """High-level extraction helper used by the processing engine."""
+    cleaned = clean_text_for_extraction(text)
+    result = bulletproof_extraction(cleaned, pdf_path.name)
+    meta = harvest_metadata(cleaned)
+    result.update(meta)
+    result["Meta"] = meta["models"]
+    pdf_meta = get_pdf_metadata(pdf_path)
+    if pdf_meta.get("author") and not result.get("author"):
+        result["author"] = pdf_meta["author"]
+    return result
 
 def harvest_all_data(text: str, filename: str) -> dict:
     models_from_text = harvest_models_from_text(text)

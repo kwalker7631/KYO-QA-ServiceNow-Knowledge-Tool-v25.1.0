@@ -42,7 +42,13 @@ class KyoQAToolApp(tk.Tk):
         self._setup_styles()
         self._create_widgets()
         ensure_folders()
+        self.update_start_button_state()
         self.after(100, self.process_response_queue)
+
+
+class QAApp(KyoQAToolApp):
+    """Backward compatibility alias for older code/tests."""
+    pass
 
     def _setup_window(self):
         self.title(f"Kyocera QA ServiceNow Knowledge Tool v{VERSION}")
@@ -136,6 +142,15 @@ class KyoQAToolApp(tk.Tk):
 
         self.exit_btn = ttk.Button(controls_frame, text="❌ Exit", command=self.on_closing)
         self.exit_btn.grid(row=2, column=3, padx=5, pady=5, sticky="ew")
+
+    def update_start_button_state(self):
+        """Enable the start button only when required inputs are selected."""
+        excel = self.selected_excel.get()
+        has_pdfs = bool(self.selected_folder.get() or self.selected_files_list)
+        if excel and has_pdfs:
+            self.process_btn.config(state=tk.NORMAL)
+        else:
+            self.process_btn.config(state=tk.DISABLED)
 
     def _create_status_and_log_section(self, parent):
         container = ttk.LabelFrame(parent, text="3. Live Status & Activity Log", padding=10)
@@ -385,6 +400,7 @@ class KyoQAToolApp(tk.Tk):
         path = filedialog.askopenfilename(title="Select ServiceNow Excel File to Clone", filetypes=[("Excel Files", "*.xlsx")])
         if path:
             self.selected_excel.set(path)
+        self.update_start_button_state()
             
     def browse_folder(self):
         path = filedialog.askdirectory(title="Select Folder Containing PDFs")
@@ -392,6 +408,7 @@ class KyoQAToolApp(tk.Tk):
             self.selected_folder.set(path)
             self.selected_files_list.clear()
             self.files_label.config(text="0 files selected")
+        self.update_start_button_state()
     
     def browse_files(self):
         paths = filedialog.askopenfilenames(title="Select PDF or ZIP Files", filetypes=[("PDF/ZIP Files", "*.pdf *.zip")])
@@ -399,6 +416,7 @@ class KyoQAToolApp(tk.Tk):
             self.selected_files_list = list(paths)
             self.files_label.config(text=f"{len(paths)} file(s) selected")
             self.selected_folder.set("")
+        self.update_start_button_state()
 #==============================================================
 # --- THIS METHOD WAS MISSING ---
 #==============================================================
@@ -418,5 +436,5 @@ class KyoQAToolApp(tk.Tk):
 #==============================================================
 
 if __name__ == "__main__":
-    app = KyoQAToolApp()
+    app = QAApp()
     app.mainloop()
