@@ -47,6 +47,9 @@ class KyoQAToolApp(tk.Tk):
         self.selected_folder = tk.StringVar()
         self.selected_excel = tk.StringVar()
         self.selected_files_list = []
+        # Update start button whenever user edits input fields
+        self.selected_folder.trace_add("write", lambda *a: self.update_start_button_state())
+        self.selected_excel.trace_add("write", lambda *a: self.update_start_button_state())
         self.status_current_file = tk.StringVar(value="Idle")
         self.progress_value = tk.DoubleVar(value=0)
         self.time_remaining_var = tk.StringVar(value="")
@@ -138,7 +141,14 @@ class QAApp(KyoQAToolApp):
         controls_frame.columnconfigure(0, weight=1)
         controls_frame.columnconfigure(1, weight=1)
         
-        self.process_btn = ttk.Button(controls_frame, text="▶ START PROCESSING", command=self.start_processing, style="Red.TButton", padding=(10,8))
+        self.process_btn = ttk.Button(
+            controls_frame,
+            text="▶ START PROCESSING",
+            command=self.start_processing,
+            style="Red.TButton",
+            padding=(10, 8),
+            state=tk.DISABLED,
+        )
         self.process_btn.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
         
         self.pause_btn = ttk.Button(controls_frame, text="⏯️ Pause", command=self.toggle_pause, state=tk.DISABLED)
