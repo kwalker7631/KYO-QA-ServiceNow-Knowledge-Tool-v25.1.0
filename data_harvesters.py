@@ -120,10 +120,11 @@ def harvest_author(text: str) -> str:
 
 
 def harvest_metadata(text: str) -> dict:
-    """Extract device models from raw text."""
+    """Extract basic metadata such as models and QA numbers from the text."""
     models = sorted(harvest_models_from_text(text))
     models_str = ", ".join(models) if models else "Not Found"
-    return {"models": models_str}
+    full_qa = harvest_qa_number(text)
+    return {"models": models_str, "full_qa_number": full_qa}
 
 
 def ai_extract(text: str, pdf_path: Path) -> dict:
