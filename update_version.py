@@ -6,6 +6,7 @@ from pathlib import Path
 # Add any new files that contain the version number to this list.
 FILES_TO_UPDATE = [
     "start_tool.py",
+    "START.bat",
     "kyo_qa_tool_app.py",
     "README.md",
     # Add other files like CHANGELOG.md if needed
