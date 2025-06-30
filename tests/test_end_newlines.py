@@ -1,6 +1,14 @@
 from pathlib import Path
 
-FILES = ["logging_utils.py", "config.py", "custom_exceptions.py"]
+FILES = [
+    "logging_utils.py",
+    "config.py",
+    "custom_exceptions.py",
+    "start_tool.py",
+    "kyo_qa_tool_app.py",
+    "requirements.txt",
+    "ocr_utils.py",
+]
 
 def test_files_end_with_newline():
     repo_root = Path(__file__).resolve().parents[1]
