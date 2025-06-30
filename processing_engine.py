@@ -7,14 +7,31 @@ import threading
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
-import openpyxl
-from openpyxl.styles import PatternFill, Alignment
+import sys
+import types
 import tempfile
-from openpyxl.utils import get_column_letter
+import zipfile
+try:
+    import openpyxl
+    from openpyxl.styles import PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+except Exception:  # pragma: no cover - fallback for test environments
+    openpyxl = types.ModuleType('openpyxl')
+    PatternFill = Alignment = object
+    def get_column_letter(idx):
+        return str(idx)
+    openpyxl.styles = types.SimpleNamespace(PatternFill=PatternFill, Alignment=Alignment)
+    openpyxl.utils = types.SimpleNamespace(get_column_letter=get_column_letter)
+    sys.modules.setdefault('openpyxl', openpyxl)
+try:
+    import pandas as pd
+except Exception:  # pragma: no cover - fallback when pandas missing
+    pd = types.ModuleType('pandas')
+
 from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
-from file_utils import (is_file_locked)
+from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
 
 CACHE_DIR = Path(__file__).parent / ".cache"
@@ -273,3 +290,24 @@ def process_zip_archive(zip_path, kb_filepath, *_, **__):
             zf.extractall(tmpdir)
         job = {"excel_path": kb_filepath, "input_path": tmpdir}
         run_processing_job(job, Queue(), threading.Event())
+
+def map_to_servicenow_format(extracted_data, filename):
+    """Map extracted data keys to the ServiceNow Excel headers."""
+    from config import HEADER_MAPPING
+    record = {header: "" for header in HEADER_MAPPING.values()}
+    record[HEADER_MAPPING["file_name"]] = filename
+    needs_review = bool(extracted_data.get("needs_review", False))
+    record[HEADER_MAPPING["needs_review"]] = needs_review
+    record[HEADER_MAPPING["processing_status"]] = "Needs Review" if needs_review else "Success"
+    for key, header in HEADER_MAPPING.items():
+        if key in ("file_name", "needs_review", "processing_status"):
+            continue
+        if key == "short_description":
+            record[header] = extracted_data.get("subject", "")
+        elif key == "description":
+            record[header] = extracted_data.get("full_qa_number", "")
+        elif key == "meta":
+            record[header] = extracted_data.get("Meta", "")
+        else:
+            record[header] = extracted_data.get(key, "")
+    return record

@@ -5,6 +5,7 @@ from pathlib import Path
 import threading
 import queue
 import time
+import sys
 
 from config import BRAND_COLORS
 from file_utils import open_file, ensure_folders, cleanup_temp_files
