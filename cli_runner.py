@@ -6,6 +6,7 @@ from pathlib import Path
 
 from processing_engine import process_folder, process_zip_archive
 from logging_utils import setup_logger
+from file_utils import ensure_folders
 
 logger = setup_logger("cli")
 
@@ -21,6 +22,9 @@ def main():
     parser.add_argument("--zip", help="Path to a zip file of PDFs")
     parser.add_argument("--excel", help="Path to existing Excel template")
     args = parser.parse_args()
+
+    # Ensure required output folders exist before processing
+    ensure_folders()
 
     if not args.excel or not Path(args.excel).exists():
         print("\nERROR: You must provide a valid Excel file using --excel\n")
