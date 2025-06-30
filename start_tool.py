@@ -5,6 +5,7 @@ import threading
 import time
 from pathlib import Path
 import shutil
+from version import get_version
 
 # --- Configuration ---
 VENV_DIR = Path(__file__).parent / "venv"
@@ -49,7 +50,9 @@ class ConsoleSpinner:
         sys.stdout.write(f"\r{icon} {final_message}\n")
         sys.stdout.flush()
 
-def print_header(version="24.0.6"):
+def print_header(version=None):
+    if version is None:
+        version = get_version()
     header = f"--- KYO QA ServiceNow Tool Smart Setup v{version} ---"
     print("\n" + "=" * len(header))
     print(header)
