@@ -5,6 +5,9 @@ from datetime import datetime
 from pathlib import Path
 from version import get_version
 
+# Use central version definition
+from version import VERSION
+
 # Paths
 project_root = Path(__file__).parent
 output_dir = project_root / "dist"

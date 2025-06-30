@@ -98,7 +98,9 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 4. Manual setup (if needed):
 
    ```bash
+
    cd KYO_QA_ServiceNow_Knowledge_Tool_v25.0.1
+
    rmdir /S /Q venv
    python -m venv venv
    venv\Scripts\python.exe -m ensurepip --default-pip
