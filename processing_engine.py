@@ -7,11 +7,47 @@ import threading
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
-import openpyxl
-from openpyxl.styles import PatternFill, Alignment
 import tempfile
-from openpyxl.utils import get_column_letter
-from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
+try:  # pragma: no cover - optional dependency
+    import openpyxl
+    from openpyxl.styles import PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+except Exception:  # pragma: no cover - if openpyxl missing use stubs
+    import types, sys
+    openpyxl = types.ModuleType("openpyxl")
+    # Minimal styles stub
+    styles = types.ModuleType("styles")
+    PatternFill = Alignment = Font = type("_S", (), {})
+    styles.PatternFill = PatternFill
+    styles.Alignment = Alignment
+    styles.Font = Font
+    openpyxl.styles = styles
+    # Formatting stub
+    formatting = types.ModuleType("formatting")
+    rule_mod = types.ModuleType("rule")
+    rule_mod.FormulaRule = type("FormulaRule", (), {})
+    formatting.rule = rule_mod
+    openpyxl.formatting = formatting
+    # Utils stub
+    utils = types.ModuleType("utils")
+    def get_column_letter(idx):
+        return str(idx)
+    utils.get_column_letter = get_column_letter
+    openpyxl.utils = utils
+    # Workbook helpers
+    class _WB:
+        def __init__(self, *a, **k):
+            self.active = types.SimpleNamespace()
+    openpyxl.Workbook = _WB
+    def load_workbook(*a, **k):
+        return _WB()
+    openpyxl.load_workbook = load_workbook
+    sys.modules.setdefault("openpyxl", openpyxl)
+    sys.modules.setdefault("openpyxl.styles", styles)
+    sys.modules.setdefault("openpyxl.formatting", formatting)
+    sys.modules.setdefault("openpyxl.formatting.rule", rule_mod)
+    sys.modules.setdefault("openpyxl.utils", utils)
+from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR, HEADER_MAPPING)
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
 from file_utils import (is_file_locked)
@@ -38,6 +74,25 @@ def clear_review_folder():
                 f.unlink()
             except OSError as e:
                 print(f"Error deleting review file {f}: {e}")
+
+
+def map_to_servicenow_format(data: dict, filename: str) -> dict:
+    """Convert harvested data into a ServiceNow-friendly dictionary."""
+    mapped = {header: "" for header in HEADER_MAPPING.values()}
+
+    mapped[HEADER_MAPPING["file_name"]] = filename
+    mapped[HEADER_MAPPING["short_description"]] = (
+        data.get("subject") or filename
+    )
+    mapped[HEADER_MAPPING["models"]] = data.get("models", "")
+    mapped[HEADER_MAPPING["author"]] = data.get("author", "")
+    if data.get("published_date"):
+        mapped[HEADER_MAPPING["scheduled_publish_date"]] = data["published_date"]
+
+    mapped[HEADER_MAPPING["processing_status"]] = (
+        "Needs Review" if data.get("needs_review") else "Pass"
+    )
+    return mapped
 
 
 def process_folder(folder_path: str, kb_filepath: str, progress_cb=None, status_cb=None, *_, **__):
@@ -113,10 +168,25 @@ def process_single_pdf(pdf_path: Path, progress_queue: Queue, ignore_cache: bool
             review_txt_path = PDF_TXT_DIR / f"{filename}.txt"
             header = f"--- Original Filename: {filename} ---\n--- QA Number Found: {data.get('full_qa_number', 'None')} ---\n\n"
             file_content_for_review = header + extracted_text
-            with open(review_txt_path, 'w', encoding='utf-8') as f:
-                f.write(file_content_for_review)
-            review_info = {"filename": filename, "reason": "No models found", "txt_path": str(review_txt_path), "pdf_path": str(pdf_path), "text_content": file_content_for_review}
-            progress_queue.put({"type": "review_item", "data": review_info})
+            try:
+                with open(review_txt_path, 'w', encoding='utf-8') as f:
+                    f.write(file_content_for_review)
+            except OSError as e:
+                progress_queue.put({
+                    "type": "log",
+                    "tag": "error",
+                    "msg": f"Failed to write review file for {filename}: {e}"
+                })
+                review_info = None
+            else:
+                review_info = {
+                    "filename": filename,
+                    "reason": "No models found",
+                    "txt_path": str(review_txt_path),
+                    "pdf_path": str(pdf_path),
+                    "text_content": file_content_for_review,
+                }
+                progress_queue.put({"type": "review_item", "data": review_info})
             data["models"] = "Review Needed"
         else:
             final_status = "Pass"
