@@ -50,7 +50,7 @@ except Exception:  # pragma: no cover - if openpyxl missing use stubs
 from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR, HEADER_MAPPING)
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
-from file_utils import (is_file_locked)
+from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
 from ai_extractor import ai_extract
 from logging_utils import create_success_log, create_failure_log
