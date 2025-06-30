@@ -1,4 +1,10 @@
-		  # CHANGELOG
+# CHANGELOG
+
+## v25.0.1 (2025-06-30)
+- Introduced a basic PySide6 interface including QAApp and Worker classes.
+- Documented Pillow and Ollama in the README for clarity.
+- Enforced end-of-file newlines across the project.
+- Refreshed setup scripts for Python 3.11 compatibility.
 
 ## v24.0.1 (2024-06-20)
 - Refactored to fully modular, maintainable codebase with clear separation of GUI, OCR, AI extraction, file handling, and Excel output.
