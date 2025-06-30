@@ -18,19 +18,27 @@ COLOR_INFO, COLOR_SUCCESS, COLOR_WARNING, COLOR_ERROR, COLOR_RESET = "", "", "",
 class ConsoleSpinner:
     def __init__(self, message="Working..."):
         self.spinner_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-        self.running = False; self.thread = None; self.message = message
+        self.running = False
+        self.thread = None
+        self.message = message
     def start(self):
-        self.running = True; self.thread = threading.Thread(target=self._spin, daemon=True); self.thread.start()
+        self.running = True
+        self.thread = threading.Thread(target=self._spin, daemon=True)
+        self.thread.start()
     def _spin(self):
         i = 0
         while self.running:
             sys.stdout.write(f"\r{COLOR_INFO}{self.spinner_chars[i % len(self.spinner_chars)]} {self.message}{COLOR_RESET}")
-            sys.stdout.flush(); i += 1; time.sleep(0.1)
+            sys.stdout.flush()
+            i += 1
+            time.sleep(0.1)
     def stop(self, final_message, success=True):
         self.running = False
-        if self.thread: self.thread.join()
+        if self.thread:
+            self.thread.join()
         icon = f"{COLOR_SUCCESS}✓{COLOR_RESET}" if success else f"{COLOR_ERROR}✗{COLOR_RESET}"
-        sys.stdout.write(f"\r{icon} {final_message}\n"); sys.stdout.flush()
+        sys.stdout.write(f"\r{icon} {final_message}\n")
+        sys.stdout.flush()
 
 def print_header(version=None):
     version = version or get_version()
@@ -41,7 +49,8 @@ def run_command(command, spinner_msg):
     spinner = ConsoleSpinner(spinner_msg)
     spinner.start()
     try:
-        subprocess.check_call(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Hide the command's output for a cleaner look with the spinner
+        subprocess.check_call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         spinner.stop(f"{spinner_msg}... Done.", success=True)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -74,49 +83,41 @@ def setup_environment():
 def first_time_setup():
     """Runs the detailed, one-time setup for creating the venv and installing packages."""
     print("Starting first-time setup...")
-    if VENV_DIR.exists(): shutil.rmtree(VENV_DIR)
+    if VENV_DIR.exists():
+        shutil.rmtree(VENV_DIR)
     
     if not run_command([sys.executable, "-m", "venv", str(VENV_DIR)], "Creating virtual environment"):
         return False
 
     venv_python = get_venv_python_path()
 
-    #==============================================================
-    # --- NEW FEATURE: Automatic Pip Upgrade ---
-    #==============================================================
     print("\n--- Upgrading Pip ---")
-    spinner = ConsoleSpinner("Upgrading pip package manager...")
-    spinner.start()
-    try:
-        subprocess.check_call([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], 
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        spinner.stop("Pip upgraded successfully.", success=True)
-    except subprocess.CalledProcessError:
-        spinner.stop("Could not upgrade pip. Continuing with existing version.", success=False)
-    #==============================================================
-    # --- END OF NEW FEATURE ---
-    #==============================================================
+    run_command([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], "Upgrading pip package manager")
 
+    # --- UPDATED SECTION ---
+    # This now uses the spinner for a much better user experience
     print(f"\n--- Installing Dependencies from {REQUIREMENTS_FILE.name} ---")
-    command = [str(venv_python), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)]
-    try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
-        for line in iter(process.stdout.readline, ''):
-            if line: print(f"  {line.strip()}")
-        if process.wait() != 0: raise subprocess.CalledProcessError(process.returncode, command)
-        print("\n✓ All dependencies installed successfully.")
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if not run_command([str(venv_python), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)], "Installing packages (this may take several minutes)"):
         print(f"\n{COLOR_ERROR}✗ Failed to install dependencies.{COLOR_RESET}")
         return False
+    # --- END OF UPDATE ---
+    
+    print("\n✓ All dependencies installed successfully.")
     return True
 
 def initialize_colors():
     """This function is called AFTER dependencies are installed."""
-    global COLOR_INFO, COLOR_SUCCESS, COLOR_WARNING, COLOR_ERROR, COLOR_RESET
+    global COLOR_INFO, COLOR_SUCCESS, COLOR_WARNING, ERROR, COLOR_RESET
     try:
         from colorama import init, Fore, Style
-        init(); COLOR_INFO=Fore.CYAN; COLOR_SUCCESS=Fore.GREEN; COLOR_WARNING=Fore.YELLOW; COLOR_ERROR=Fore.RED; COLOR_RESET=Style.RESET_ALL
-    except ImportError: pass
+        init()
+        COLOR_INFO = Fore.CYAN
+        COLOR_SUCCESS = Fore.GREEN
+        COLOR_WARNING = Fore.YELLOW
+        COLOR_ERROR = Fore.RED
+        COLOR_RESET = Style.RESET_ALL
+    except ImportError:
+        pass
 
 def launch_application():
     """Launches the main Tkinter application."""
