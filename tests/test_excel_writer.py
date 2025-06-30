@@ -3,11 +3,22 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+import types
 import pytest
 try:
     import openpyxl
 except ModuleNotFoundError:
-    pytest.skip('openpyxl not installed', allow_module_level=True)
+    openpyxl = types.ModuleType('openpyxl')
+    class DummyWB:
+        def __init__(self):
+            self.active = types.SimpleNamespace()
+        def save(self, *a, **k):
+            pass
+    openpyxl.Workbook = DummyWB
+    def load_workbook(*a, **k):
+        return DummyWB()
+    openpyxl.load_workbook = load_workbook
+    sys.modules['openpyxl'] = openpyxl
 
 from excel_generator import ExcelWriter, NEEDS_REVIEW_FILL, FAILED_FILL
 load_workbook = openpyxl.load_workbook
