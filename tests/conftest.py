@@ -69,7 +69,6 @@ if 'dateutil.relativedelta' not in sys.modules:
 
 if 'openpyxl' not in sys.modules:
     openpyxl = types.ModuleType('openpyxl')
-
     class _DummyWB:
         def __init__(self):
             self.active = types.SimpleNamespace()
