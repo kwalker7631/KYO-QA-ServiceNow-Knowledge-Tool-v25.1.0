@@ -1,5 +1,6 @@
 # processing_engine.py
 import shutil, time, json, openpyxl, re
+import threading
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
@@ -54,9 +55,16 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
         data = harvest_all_data(extracted_text, filename)
         if data["models"] == "Not Found":
             status = "Needs Review"
+            NEEDS_REVIEW_DIR.mkdir(parents=True, exist_ok=True)
             review_txt_path = NEEDS_REVIEW_DIR / f"{filename}.txt"
-            with open(review_txt_path, 'w', encoding='utf-8') as f: f.write(f"--- Filename: {filename} ---\n\n{extracted_text}")
-            review_info = {"filename": filename, "reason": "No models", "txt_path": str(review_txt_path), "pdf_path": str(pdf_path)}
+            with open(review_txt_path, 'w', encoding='utf-8') as f:
+                f.write(f"--- Filename: {filename} ---\n\n{extracted_text}")
+            review_info = {
+                "filename": filename,
+                "reason": "No models",
+                "txt_path": str(review_txt_path),
+                "pdf_path": str(pdf_path),
+            }
             progress_queue.put({"type": "review_item", "data": review_info})
         else:
             status = "Pass"; review_info = None
@@ -160,3 +168,21 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event):
         error_message = f"A critical error occurred: {e}"
         progress_queue.put({"type": "log", "tag": "error", "msg": error_message})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
+
+
+def process_folder(folder_path, excel_path, *_, **__):
+    """Legacy CLI wrapper to process all PDFs in a folder."""
+    progress_queue = Queue()
+    cancel_event = threading.Event()
+    pause_event = threading.Event()
+    job = {"excel_path": excel_path, "input_path": folder_path}
+    run_processing_job(job, progress_queue, cancel_event, pause_event)
+
+
+def process_zip_archive(zip_path, excel_path, *args, **kwargs):
+    """Legacy CLI wrapper to process a ZIP of PDFs."""
+    import tempfile, zipfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmpdir)
+        process_folder(tmpdir, excel_path, *args, **kwargs)

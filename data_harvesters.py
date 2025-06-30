@@ -44,7 +44,8 @@ def harvest_models(text: str, filename: str) -> list:
     for content in [text, filename.replace("_", " ")]:
         for p in patterns:
             for match in re.findall(p, content, re.IGNORECASE):
-                if not is_excluded(match): models.add(clean_model(match))
+                if not is_excluded(match):
+                    models.add(clean_model_string(match))
     return sorted(list(models))
 
 def harvest_author(text: str) -> str:

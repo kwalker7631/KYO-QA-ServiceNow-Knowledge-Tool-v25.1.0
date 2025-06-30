@@ -9,8 +9,6 @@ MODEL_PATTERNS = [
     r"\\bVi\\d+\\b",
     r"\\bKM-\\d+\\b",
     r"\\bFS-\\d+DN\\b",
-    r"\\bFS-\\d+DN\\b",
-    r"\\bFS-\\d+DN\\b",
     r"\\bP\\d+dn\\b",
     r"\\bM\\d+dn\\b",
     r"\\bM\\d+cdn\\b",

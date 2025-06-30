@@ -6,7 +6,7 @@
 
 - **Python 3.11.x (64-bit):** Download Python 3.11.9 Windows Installer or use a portable version in `python-3.11.9` folder.
 - **Tesseract OCR:** Tesseract Windows Installer (UB Mannheim) or place portable binary in `tesseract` folder.
-- **Dependencies:** Listed in `requirements.txt` (auto-installed via `start_tool.py`). Key packages include `PySide6` for the GUI, `PyMuPDF` for PDF handling, `Pillow` for images, and `ollama` for AI features.
+- **Dependencies:** Listed in `requirements.txt` (auto-installed via `start_tool.py`). Key packages include `PySide6` for the GUI, `PyMuPDF` for PDF handling, `Pillow` for images, `ollama` for AI features, and `extract` for extra data extraction helpers.
 - **Install PySide6:** If it doesn't auto-install, run `pip install PySide6` inside the `venv`.
 
 ### 2. Folder Structure
@@ -32,11 +32,12 @@ KYO_QA_ServiceNow_Knowledge_Tool_v25.1.0/\
 ├── python-3.11.9/ (optional, for portable Python)\
 ├── logs/ (auto-created)\
 ├── output/ (auto-created)\
-└── pdf_txt/needs_review/ (auto-created)
+└── PDF_TXT/
+    └── needs_review/ (auto-created)
 
 ## Directory Breakdown
 
-This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSYS A123abcd`), QA/SB numbers, and descriptions from Kyocera QA/service PDFs using OCR and pattern recognition. It updates blank cells in the “Meta” column of a cloned ServiceNow-compatible Excel file, preserving the original. Text files for documents needing review are saved in `pdf_txt/needs_review/`. No PDFs are retained.
+This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSYS A123abcd`), QA/SB numbers, and descriptions from Kyocera QA/service PDFs using OCR and pattern recognition. It updates blank cells in the “Meta” column of a cloned ServiceNow-compatible Excel file, preserving the original. Text files for documents needing review are saved in `PDF_TXT/needs_review`. No PDFs are retained.
 
 ## 📁 Key Files
 
@@ -76,7 +77,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 | --- | --- |
 | `/logs/` | Session logs (success/fail) |
 | `/output/` | Excel output (`cloned_<excel>.xlsx`) |
-| `/pdf_txt/needs_review/` | Text files for documents needing review |
+| `/PDF_TXT/needs_review/` | Text files for documents needing review |
 | `/venv/` | Virtual environment for isolation |
 
 ## ✅ Summary
@@ -84,7 +85,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 - **Secure**: No PDF retention.
 - **Automated**: Auto-installs dependencies.
 - **Portable**: Supports portable Python and Tesseract for USB deployment.
-- **Modular & Logged**: Comprehensive logging to `/logs/` and `pdf_txt/needs_review/` for review.
+ - **Modular & Logged**: Comprehensive logging to `/logs/` and `PDF_TXT/needs_review` for review.
 - **UI**: Bright, Kyocera-branded Tkinter UI with progress bars, color-coded logs, and detailed processing feedback.
 - **Excel**: Clones input Excel, updates only blank “Meta” cells with model numbers.
 
@@ -117,9 +118,8 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 4. Click "Start Processing" to:
    - Extract model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`), QA numbers, and metadata.
    - Update blank “Meta” cells in a cloned Excel file.
- - Save text files for failed or incomplete extractions in `pdf_txt/needs_review/`.
-5. Review output in `/output/cloned_<excel>.xlsx` and logs in `/logs/` or `pdf_txt/needs_review/`.
-6. To reprocess flagged files, click the **Re-run Flagged** button. The tool pulls PDFs listed in `pdf_txt/needs_review/` and runs them again.
+   - Save text files for failed or incomplete extractions in `PDF_TXT/needs_review`.
+ 5. Review output in `/output/cloned_<excel>.xlsx` and logs in `/logs/` or `PDF_TXT/needs_review`.
 
 ### 5. Development and Testing
 
@@ -155,7 +155,7 @@ The CLI currently relies on the upcoming `process_folder` and `process_zip_archi
 
 - Session logs in `/logs/[YYYY-MM-DD_HH-MM-SS]_session.log`.
 - Success/failure logs as `[YYYYMMDD]_SUCCESSlog.md` or `FAILlog.md` in `/logs/`.
-- Text files for documents needing review (e.g., failed model extraction) in `/pdf_txt/needs_review/*.txt`.
+- Text files for documents needing review (e.g., failed model extraction) in `/PDF_TXT/needs_review/*.txt`.
 
 ### 9. Portable Deployment
 
