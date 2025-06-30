@@ -23,28 +23,6 @@ FAILED_FILL = PatternFill(start_color="9C0006", end_color="9C0006", fill_type="s
 SUCCESS_FILL = PatternFill(fill_type=None)
 
 
-class ExcelWriter:
-    """Lightweight Excel writer used for unit tests."""
-
-    def __init__(self, output_path: str, headers: list[str]):
-        self.output_path = output_path
-        self.headers = headers
-        self.wb = openpyxl.Workbook()
-        self.ws = self.wb.active
-        self.ws.append(headers)
-
-    def add_row(self, data: dict):
-        row = [data.get(h, "") for h in self.headers]
-        self.ws.append(row)
-        status = data.get("processing_status")
-        cell = self.ws.cell(row=self.ws.max_row, column=1)
-        if status == "Needs Review":
-            cell.fill = NEEDS_REVIEW_FILL
-        elif status == "Failed":
-            cell.fill = FAILED_FILL
-
-    def save(self):
-        self.wb.save(self.output_path)
 
 DEFAULT_TEMPLATE_HEADERS = [
     "Active",
@@ -83,30 +61,6 @@ DEFAULT_TEMPLATE_HEADERS = [
 ]
 
 
-class ExcelWriter:
-    """Minimal writer used in tests to verify row coloring."""
-
-    def __init__(self, filepath, headers):
-        self.filepath = filepath
-        self.headers = [h.strip() for h in headers]
-        self.workbook = openpyxl.Workbook()
-        self.sheet = self.workbook.active
-        self.sheet.append(self.headers)
-
-    def add_row(self, data):
-        row = [data.get(h, "") for h in self.headers]
-        self.sheet.append(row)
-        status = data.get("processing_status", "Success")
-        fill = {
-            "Needs Review": NEEDS_REVIEW_FILL,
-            "Failed": FAILED_FILL,
-        }.get(status)
-        if fill:
-            for cell in self.sheet[self.sheet.max_row]:
-                cell.fill = fill
-
-    def save(self):
-        self.workbook.save(self.filepath)
 
 
 def sanitize_for_excel(value):
@@ -169,7 +123,7 @@ def apply_excel_styles(worksheet, df):
 
 
 class ExcelWriter:
-    """Lightweight Excel writer used in tests."""
+    """Write Excel files with status-based color coding."""
 
     def __init__(self, path: str, headers: list[str]):
         self.path = path
