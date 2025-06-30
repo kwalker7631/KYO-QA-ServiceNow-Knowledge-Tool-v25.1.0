@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 from ocr_utils import extract_text_from_pdf, TESSERACT_AVAILABLE
-from data_harvesters import harvest_data_from_text
+from data_harvesters import harvest_all_data
 from config import MODEL_PATTERNS
 import time
 
@@ -37,8 +37,8 @@ def test_model_extraction(pdf_path: Path):
     print(f"\n[Step 3: Harvesting Models]")
     print(f"-> Using {len(MODEL_PATTERNS)} patterns from config.py")
     
-    # We use harvest_data_from_text as it returns a dictionary we can inspect
-    extracted_data = harvest_data_from_text(raw_text)
+    # Use harvest_all_data to extract models and related metadata
+    extracted_data = harvest_all_data(raw_text, pdf_path.name)
     found_models_str = extracted_data.get("models")
 
     # 4. Print the final results
