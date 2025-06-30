@@ -77,3 +77,11 @@ STANDARDIZATION_RULES = {
 
 # --- EXCEL GENERATION ---
 META_COLUMN_NAME = "Meta"
+
+# Mapping from internal field names to Excel headers
+HEADER_MAPPING = {
+    "short_description": "Short description",
+    "models": META_COLUMN_NAME,
+    "processing_status": "Processing Status",
+    "file_name": "Description",
+}

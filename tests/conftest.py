@@ -59,6 +59,29 @@ if 'fitz' not in sys.modules:
 if 'pandas' not in sys.modules:
     sys.modules['pandas'] = types.ModuleType('pandas')
 
+if 'openpyxl' not in sys.modules:
+    openpyxl = types.ModuleType('openpyxl')
+    class _DummyWB:
+        def __init__(self, *a, **k):
+            self.active = types.SimpleNamespace()
+        def save(self, *a, **k):
+            pass
+    openpyxl.Workbook = _DummyWB
+    openpyxl.load_workbook = lambda *a, **k: _DummyWB()
+    openpyxl.styles = types.ModuleType('openpyxl.styles')
+    openpyxl.styles.PatternFill = object
+    openpyxl.styles.Alignment = object
+    openpyxl.utils = types.ModuleType('openpyxl.utils')
+    openpyxl.utils.get_column_letter = lambda i: 'A'
+    openpyxl.formatting = types.ModuleType('openpyxl.formatting')
+    openpyxl.formatting.rule = types.ModuleType('openpyxl.formatting.rule')
+    openpyxl.formatting.rule.FormulaRule = object
+    sys.modules['openpyxl'] = openpyxl
+    sys.modules['openpyxl.styles'] = openpyxl.styles
+    sys.modules['openpyxl.utils'] = openpyxl.utils
+    sys.modules['openpyxl.formatting'] = openpyxl.formatting
+    sys.modules['openpyxl.formatting.rule'] = openpyxl.formatting.rule
+
 if 'dateutil' not in sys.modules:
     dateutil = types.ModuleType('dateutil')
     sys.modules['dateutil'] = dateutil

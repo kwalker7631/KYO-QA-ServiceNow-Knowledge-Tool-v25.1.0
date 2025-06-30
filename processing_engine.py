@@ -9,9 +9,17 @@ from pathlib import Path
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import PatternFill, Alignment
+import pandas as pd
 import tempfile
 from openpyxl.utils import get_column_letter
-from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
+from config import (
+    META_COLUMN_NAME,
+    OUTPUT_DIR,
+    PDF_TXT_DIR,
+    HEADER_MAPPING,
+)
+from ai_extractor import ai_extract
+from logging_utils import create_success_log
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
 from file_utils import (is_file_locked)
@@ -19,6 +27,18 @@ from ocr_utils import extract_text_from_pdf, _is_ocr_needed
 
 CACHE_DIR = Path(__file__).parent / ".cache"
 CACHE_DIR.mkdir(exist_ok=True)
+
+
+def map_to_servicenow_format(data: dict, filename: str) -> dict:
+    """Map extracted data to ServiceNow column headers."""
+    return {
+        HEADER_MAPPING["short_description"]: data.get("subject") or filename,
+        HEADER_MAPPING["models"]: data.get("models", ""),
+        HEADER_MAPPING["processing_status"]: (
+            "Needs Review" if data.get("needs_review") else "Success"
+        ),
+        HEADER_MAPPING["file_name"]: filename,
+    }
 
 def get_cache_path(pdf_path: Path) -> Path:
     """Generates a unique cache file path based on the PDF's name and size."""
@@ -273,3 +293,27 @@ def process_zip_archive(zip_path, kb_filepath, *_, **__):
             zf.extractall(tmpdir)
         job = {"excel_path": kb_filepath, "input_path": tmpdir}
         run_processing_job(job, Queue(), threading.Event())
+
+
+def _main_processing_loop(
+    pdf_paths,
+    kb_filepath,
+    progress_cb,
+    status_cb,
+    ocr_callback,
+    review_callback,
+    cancel_event,
+):
+    df = pd.read_excel(kb_filepath)
+    for path in pdf_paths:
+        if cancel_event.is_set():
+            break
+        if _is_ocr_needed(path):
+            text = extract_text_from_pdf(path, cb=ocr_callback)
+        else:
+            text = extract_text_from_pdf(path)
+        data = ai_extract(text, path)
+        if data.get("needs_review"):
+            review_callback()
+    create_success_log(f"Processed {len(pdf_paths)} record(s)")
+    return df
