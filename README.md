@@ -6,7 +6,7 @@
 
 - **Python 3.11.x (64-bit):** Download Python 3.11.9 Windows Installer or use a portable version in `python-3.11.9` folder.
 - **Tesseract OCR:** Tesseract Windows Installer (UB Mannheim) or place portable binary in `tesseract` folder.
-- **Dependencies:** Listed in `requirements.txt` (auto-installed via `start_tool.py`).
+- **Dependencies:** Listed in `requirements.txt` (auto-installed via `start_tool.py`) including `PyMuPDF` and `PySide6`.
 
 ### 2. Folder Structure
 
@@ -125,7 +125,7 @@ Run tests with:
 pytest -q
 ```
 
-Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `colorama`. Ensure Tesseract is installed or in `tesseract` folder for OCR tests.
+Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-dateutil`, `colorama`. Ensure Tesseract is installed or in `tesseract` folder for OCR tests.
 
 ### 6. Versioning
 
