@@ -6,7 +6,6 @@ from pathlib import Path
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-
 class QtWidgetHandler(logging.Handler):
 
     """Send log records to a Qt text widget."""
@@ -31,6 +30,7 @@ LOG_DIR = Path.cwd() / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
+
 
 class QtWidgetHandler(logging.Handler):
     """Simple handler that appends log messages to a text widget."""
@@ -65,6 +65,7 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logg
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
+
         root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
 
     if log_widget:

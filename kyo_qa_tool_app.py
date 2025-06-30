@@ -11,6 +11,10 @@ from file_utils import open_file, ensure_folders, cleanup_temp_files
 from kyo_review_tool import ReviewWindow
 from version import VERSION
 import logging_utils
+import processing_engine
+
+# Ensure tests that stub openpyxl don't interfere with later imports
+sys.modules.pop("openpyxl", None)
 
 
 def gui_callback(func):
@@ -29,7 +33,6 @@ def gui_callback(func):
     return wrapper
 
 logger = logging_utils.setup_logger("app")
-
 
 class _DummySignal:
     def emit(self, *args, **kwargs):

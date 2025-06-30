@@ -168,6 +168,24 @@ def apply_excel_styles(worksheet, df):
         )
 
 
+class ExcelWriter:
+    """Lightweight Excel writer used in tests."""
+
+    def __init__(self, path: str, headers: list[str]):
+        self.path = path
+        self.headers = headers
+        self.rows: list[dict] = []
+
+    def add_row(self, data: dict) -> None:
+        self.rows.append(data)
+
+    def save(self) -> None:
+        df = pd.DataFrame(self.rows, columns=self.headers)
+        with pd.ExcelWriter(self.path, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="ServiceNow Import")
+            apply_excel_styles(writer.sheets["ServiceNow Import"], df)
+
+
 def generate_excel(all_results, output_path, template_path):
     try:
         if not all_results:

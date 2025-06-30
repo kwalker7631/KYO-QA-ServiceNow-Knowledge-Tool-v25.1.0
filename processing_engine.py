@@ -1,7 +1,6 @@
 # processing_engine.py
 import shutil
 import time
-import zipfile
 import json
 import fitz
 import threading
@@ -15,7 +14,7 @@ from openpyxl.utils import get_column_letter
 from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
-from file_utils import (cleanup_temp_files, get_temp_dir, is_file_locked)
+from file_utils import (is_file_locked)
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
 
 CACHE_DIR = Path(__file__).parent / ".cache"
@@ -37,6 +36,18 @@ def clear_review_folder():
                 f.unlink()
             except OSError as e:
                 print(f"Error deleting review file {f}: {e}")
+
+
+def process_folder(folder_path: str, kb_filepath: str, progress_cb=None, status_cb=None, *_, **__):
+    """Thin wrapper that delegates to ``run_processing_job`` for a folder."""
+    job = {"excel_path": kb_filepath, "input_path": folder_path}
+    run_processing_job(job, Queue(), type("C", (), {"is_set": lambda self: False})())
+
+
+def process_zip_archive(zip_path: str, kb_filepath: str, progress_cb=None, status_cb=None, *_, **__):
+    """Thin wrapper that delegates to ``run_processing_job`` for a zip archive."""
+    job = {"excel_path": kb_filepath, "input_path": zip_path}
+    run_processing_job(job, Queue(), type("C", (), {"is_set": lambda self: False})())
 
 def process_single_pdf(pdf_path: Path, progress_queue: Queue, ignore_cache: bool = False) -> dict:
     """Processes a single PDF, with more robust caching."""
@@ -147,7 +158,7 @@ def run_processing_job(job_info: dict, progress_queue: Queue, cancel_event):
         results_map = {}
         for i, file_path in enumerate(files_to_process):
             if pause_event and pause_event.is_set():
-                progress_queue.put({"type": "status", "msg": f"Paused. Waiting to resume...", "led": "Paused"})
+                progress_queue.put({"type": "status", "msg": "Paused. Waiting to resume...", "led": "Paused"})
                 while pause_event.is_set():
                     if cancel_event.is_set(): break
                     time.sleep(0.5)
@@ -262,5 +273,3 @@ def process_zip_archive(zip_path, kb_filepath, *_, **__):
             zf.extractall(tmpdir)
         job = {"excel_path": kb_filepath, "input_path": tmpdir}
         run_processing_job(job, Queue(), threading.Event())
-
-
