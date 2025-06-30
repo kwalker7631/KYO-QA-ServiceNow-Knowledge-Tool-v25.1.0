@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR / "output"
 LOGS_DIR = BASE_DIR / "logs"
 PDF_TXT_DIR = BASE_DIR / "PDF_TXT"
+NEEDS_REVIEW_DIR = PDF_TXT_DIR / "needs_review"
 CACHE_DIR = BASE_DIR / ".cache"
 
 # --- BRANDING AND UI ---

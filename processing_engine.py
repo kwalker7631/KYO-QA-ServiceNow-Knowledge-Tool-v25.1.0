@@ -13,10 +13,12 @@ from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
 
 def clear_review_folder():
-    if PDF_TXT_DIR.exists():
-        for f in PDF_TXT_DIR.glob("*.txt"):
-            try: f.unlink()
-            except OSError as e: print(f"Error deleting review file {f}: {e}")
+    if NEEDS_REVIEW_DIR.exists():
+        for f in NEEDS_REVIEW_DIR.glob("*.txt"):
+            try:
+                f.unlink()
+            except OSError as e:
+                print(f"Error deleting review file {f}: {e}")
 
 def get_cache_path(pdf_path):
     try: return CACHE_DIR / f"{pdf_path.stem}_{pdf_path.stat().st_size}.json"
@@ -52,7 +54,7 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
         data = harvest_all_data(extracted_text, filename)
         if data["models"] == "Not Found":
             status = "Needs Review"
-            review_txt_path = PDF_TXT_DIR / f"{filename}.txt"
+            review_txt_path = NEEDS_REVIEW_DIR / f"{filename}.txt"
             with open(review_txt_path, 'w', encoding='utf-8') as f: f.write(f"--- Filename: {filename} ---\n\n{extracted_text}")
             review_info = {"filename": filename, "reason": "No models", "txt_path": str(review_txt_path), "pdf_path": str(pdf_path)}
             progress_queue.put({"type": "review_item", "data": review_info})

@@ -15,6 +15,7 @@ REQUIRED_FOLDERS = [
     "logs",
     "output",
     "PDF_TXT",
+    "PDF_TXT/needs_review",
     "temp"
     # add more as needed
 ]
