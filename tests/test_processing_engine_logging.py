@@ -60,17 +60,17 @@ class DummyDF:
 
 
 def test_success_log_called(monkeypatch):
-    pandas_stub = ModuleType('pandas')
-    pandas_stub.DataFrame = DummyDF
-    pandas_stub.isna = lambda x: x is None
-    monkeypatch.setitem(sys.modules, 'pandas', pandas_stub)
+    if 'openpyxl' not in sys.modules:
+        openpyxl = ModuleType('openpyxl')
+        styles = ModuleType('styles')
+        styles.PatternFill = object
+        styles.Alignment = object
+        openpyxl.styles = styles
+        openpyxl.load_workbook = lambda *a, **k: SimpleNamespace(active=None)
+        sys.modules['openpyxl'] = openpyxl
+        sys.modules['openpyxl.styles'] = styles
 
     processing_engine = importlib.reload(importlib.import_module('processing_engine'))
-
-    dummy_df = DummyDF()
-    monkeypatch.setattr(processing_engine.pd, 'read_excel', lambda *a, **k: dummy_df, raising=False)
-    monkeypatch.setattr(processing_engine.pd, 'isna', lambda x: x is None, raising=False)
-    monkeypatch.setattr(processing_engine.pd.DataFrame, 'to_excel', lambda self, *a, **k: None, raising=False)
     monkeypatch.setattr(processing_engine, 'is_file_locked', lambda p: False)
     monkeypatch.setattr(
         processing_engine,

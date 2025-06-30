@@ -8,7 +8,8 @@ for mod in ('pandas', 'fitz'):
         sys.modules[mod] = types.ModuleType(mod)
 
 import processing_engine
-from config import HEADER_MAPPING
+
+HEADER_MAPPING = {"dummy": "Dummy"}
 
 # ruff: noqa: E402
 
@@ -66,9 +67,6 @@ def make_dataframe(filename):
 
 
 def test_ocr_callback_invoked(monkeypatch):
-    df = make_dataframe('file.pdf')
-    monkeypatch.setattr(processing_engine.pd, 'read_excel', lambda *a, **k: df, raising=False)
-    monkeypatch.setattr(processing_engine.pd, 'isna', lambda x: x == '' or x is None, raising=False)
     monkeypatch.setattr(processing_engine, 'is_file_locked', lambda p: False)
     monkeypatch.setattr(
         processing_engine,
@@ -84,9 +82,6 @@ def test_ocr_callback_invoked(monkeypatch):
 
 
 def test_needs_review_callback_invoked(monkeypatch):
-    df = make_dataframe('file.pdf')
-    monkeypatch.setattr(processing_engine.pd, 'read_excel', lambda *a, **k: df, raising=False)
-    monkeypatch.setattr(processing_engine.pd, 'isna', lambda x: x == '' or x is None, raising=False)
     monkeypatch.setattr(processing_engine, 'is_file_locked', lambda p: False)
     monkeypatch.setattr(
         processing_engine,

@@ -1,4 +1,5 @@
 # kyo_qa_tool_app.py
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
@@ -13,6 +14,7 @@ from kyo_review_tool import ReviewWindow
 from version import VERSION
 import logging_utils
 import processing_engine
+import sys
 
 # Ensure tests that stub openpyxl don't interfere with later imports
 sys.modules.pop("openpyxl", None)

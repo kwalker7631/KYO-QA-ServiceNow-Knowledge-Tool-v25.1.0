@@ -7,32 +7,53 @@ import threading
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
-import sys
-import types
 import tempfile
-import zipfile
-try:
+try:  # pragma: no cover - optional dependency
     import openpyxl
     from openpyxl.styles import PatternFill, Alignment
     from openpyxl.utils import get_column_letter
-except Exception:  # pragma: no cover - fallback for test environments
-    openpyxl = types.ModuleType('openpyxl')
-    PatternFill = Alignment = object
+except Exception:  # pragma: no cover - if openpyxl missing use stubs
+    import types, sys
+    openpyxl = types.ModuleType("openpyxl")
+    # Minimal styles stub
+    styles = types.ModuleType("styles")
+    PatternFill = Alignment = Font = type("_S", (), {})
+    styles.PatternFill = PatternFill
+    styles.Alignment = Alignment
+    styles.Font = Font
+    openpyxl.styles = styles
+    # Formatting stub
+    formatting = types.ModuleType("formatting")
+    rule_mod = types.ModuleType("rule")
+    rule_mod.FormulaRule = type("FormulaRule", (), {})
+    formatting.rule = rule_mod
+    openpyxl.formatting = formatting
+    # Utils stub
+    utils = types.ModuleType("utils")
     def get_column_letter(idx):
         return str(idx)
-    openpyxl.styles = types.SimpleNamespace(PatternFill=PatternFill, Alignment=Alignment)
-    openpyxl.utils = types.SimpleNamespace(get_column_letter=get_column_letter)
-    sys.modules.setdefault('openpyxl', openpyxl)
-try:
-    import pandas as pd
-except Exception:  # pragma: no cover - fallback when pandas missing
-    pd = types.ModuleType('pandas')
-
-from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
+    utils.get_column_letter = get_column_letter
+    openpyxl.utils = utils
+    # Workbook helpers
+    class _WB:
+        def __init__(self, *a, **k):
+            self.active = types.SimpleNamespace()
+    openpyxl.Workbook = _WB
+    def load_workbook(*a, **k):
+        return _WB()
+    openpyxl.load_workbook = load_workbook
+    sys.modules.setdefault("openpyxl", openpyxl)
+    sys.modules.setdefault("openpyxl.styles", styles)
+    sys.modules.setdefault("openpyxl.formatting", formatting)
+    sys.modules.setdefault("openpyxl.formatting.rule", rule_mod)
+    sys.modules.setdefault("openpyxl.utils", utils)
+from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR, HEADER_MAPPING)
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
 from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
+from ai_extractor import ai_extract
+from logging_utils import create_success_log, create_failure_log
 
 CACHE_DIR = Path(__file__).parent / ".cache"
 CACHE_DIR.mkdir(exist_ok=True)
@@ -53,6 +74,25 @@ def clear_review_folder():
                 f.unlink()
             except OSError as e:
                 print(f"Error deleting review file {f}: {e}")
+
+
+def map_to_servicenow_format(data: dict, filename: str) -> dict:
+    """Convert harvested data into a ServiceNow-friendly dictionary."""
+    mapped = {header: "" for header in HEADER_MAPPING.values()}
+
+    mapped[HEADER_MAPPING["file_name"]] = filename
+    mapped[HEADER_MAPPING["short_description"]] = (
+        data.get("subject") or filename
+    )
+    mapped[HEADER_MAPPING["models"]] = data.get("models", "")
+    mapped[HEADER_MAPPING["author"]] = data.get("author", "")
+    if data.get("published_date"):
+        mapped[HEADER_MAPPING["scheduled_publish_date"]] = data["published_date"]
+
+    mapped[HEADER_MAPPING["processing_status"]] = (
+        "Needs Review" if data.get("needs_review") else "Pass"
+    )
+    return mapped
 
 
 def process_folder(folder_path: str, kb_filepath: str, progress_cb=None, status_cb=None, *_, **__):
@@ -128,10 +168,25 @@ def process_single_pdf(pdf_path: Path, progress_queue: Queue, ignore_cache: bool
             review_txt_path = PDF_TXT_DIR / f"{filename}.txt"
             header = f"--- Original Filename: {filename} ---\n--- QA Number Found: {data.get('full_qa_number', 'None')} ---\n\n"
             file_content_for_review = header + extracted_text
-            with open(review_txt_path, 'w', encoding='utf-8') as f:
-                f.write(file_content_for_review)
-            review_info = {"filename": filename, "reason": "No models found", "txt_path": str(review_txt_path), "pdf_path": str(pdf_path), "text_content": file_content_for_review}
-            progress_queue.put({"type": "review_item", "data": review_info})
+            try:
+                with open(review_txt_path, 'w', encoding='utf-8') as f:
+                    f.write(file_content_for_review)
+            except OSError as e:
+                progress_queue.put({
+                    "type": "log",
+                    "tag": "error",
+                    "msg": f"Failed to write review file for {filename}: {e}"
+                })
+                review_info = None
+            else:
+                review_info = {
+                    "filename": filename,
+                    "reason": "No models found",
+                    "txt_path": str(review_txt_path),
+                    "pdf_path": str(pdf_path),
+                    "text_content": file_content_for_review,
+                }
+                progress_queue.put({"type": "review_item", "data": review_info})
             data["models"] = "Review Needed"
         else:
             final_status = "Pass"
@@ -291,23 +346,44 @@ def process_zip_archive(zip_path, kb_filepath, *_, **__):
         job = {"excel_path": kb_filepath, "input_path": tmpdir}
         run_processing_job(job, Queue(), threading.Event())
 
-def map_to_servicenow_format(extracted_data, filename):
-    """Map extracted data keys to the ServiceNow Excel headers."""
-    from config import HEADER_MAPPING
-    record = {header: "" for header in HEADER_MAPPING.values()}
-    record[HEADER_MAPPING["file_name"]] = filename
-    needs_review = bool(extracted_data.get("needs_review", False))
-    record[HEADER_MAPPING["needs_review"]] = needs_review
-    record[HEADER_MAPPING["processing_status"]] = "Needs Review" if needs_review else "Success"
-    for key, header in HEADER_MAPPING.items():
-        if key in ("file_name", "needs_review", "processing_status"):
-            continue
-        if key == "short_description":
-            record[header] = extracted_data.get("subject", "")
-        elif key == "description":
-            record[header] = extracted_data.get("full_qa_number", "")
-        elif key == "meta":
-            record[header] = extracted_data.get("Meta", "")
-        else:
-            record[header] = extracted_data.get(key, "")
-    return record
+
+def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, ocr_cb, review_cb, cancel_event):
+    """Simplified loop retained for backward compatibility in tests."""
+    updated_count, failed_count = 0, 0
+    for i, file_path in enumerate(files_to_process):
+        if cancel_event.is_set():
+            break
+
+        progress_cb(f"Processing {i + 1}/{len(files_to_process)}: {file_path.name}")
+        status_cb("file", f"Opening {file_path.name}...")
+        try:
+            needs_ocr = _is_ocr_needed(file_path)
+            if needs_ocr:
+                status_cb("OCR", f"Performing OCR on {file_path.name}...")
+            text = extract_text_from_pdf(file_path)
+            if needs_ocr:
+                ocr_cb()
+            if not text:
+                status_cb("FAIL", f"Failed: Could not extract text from {file_path.name}")
+                failed_count += 1
+                continue
+
+            status_cb("AI", f"Analyzing content of {file_path.name}...")
+            extracted = ai_extract(text, file_path)
+            if extracted.get("needs_review"):
+                status_cb("NEEDS_REVIEW", f"{file_path.name} flagged for manual review.")
+                review_cb()
+            else:
+                status_cb("SUCCESS", f"Successfully extracted data from {file_path.name}.")
+
+            updated_count += 1
+        except Exception:
+            status_cb("FAIL", f"Critical error on {file_path.name}")
+            failed_count += 1
+
+    if updated_count > 0:
+        create_success_log(f"{updated_count} record(s) updated, {failed_count} file(s) failed.")
+    else:
+        create_failure_log(f"{updated_count} record(s) updated, {failed_count} file(s) failed.", "No updates")
+
+    return kb_filepath, updated_count, failed_count
