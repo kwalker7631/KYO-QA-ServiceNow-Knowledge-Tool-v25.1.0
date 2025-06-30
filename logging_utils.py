@@ -31,6 +31,19 @@ LOG_DIR.mkdir(exist_ok=True)
 
 SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
 
+class QtWidgetHandler(logging.Handler):
+    """Simple handler that appends log messages to a text widget."""
+
+    def __init__(self, widget):
+        super().__init__()
+        self.widget = widget
+
+    def emit(self, record):  # pragma: no cover - simple UI helper
+        msg = self.format(record)
+        append = getattr(self.widget, "append", None)
+        if callable(append):
+            append(msg)
+
 def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logger:
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)-8s] [%(name)-20s] %(message)s",
@@ -51,19 +64,14 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logg
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
-        root_logger.info(
-            f"Logging initialized for session. Log file: {SESSION_LOG_FILE}"
-        )
-
-    if log_widget is not None and not any(
-        isinstance(h, QtWidgetHandler) and getattr(h, "widget", None) is log_widget
-        for h in root_logger.handlers
-    ):
-        qt_handler = QtWidgetHandler(log_widget)
-        qt_handler.setFormatter(formatter)
-        root_logger.addHandler(qt_handler)
-
-    return logging.getLogger(name)
+        root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
+    
+    logger = logging.getLogger(name)
+    if log_widget is not None:
+        widget_handler = QtWidgetHandler(log_widget)
+        widget_handler.setFormatter(formatter)
+        logger.addHandler(widget_handler)
+    return logger
 
 def log_info(logger: logging.Logger, message: str) -> None:
     logger.info(message)
