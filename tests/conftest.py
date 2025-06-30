@@ -66,3 +66,9 @@ if 'dateutil.relativedelta' not in sys.modules:
     rd = types.ModuleType('dateutil.relativedelta')
     rd.relativedelta = lambda **kw: None
     sys.modules['dateutil.relativedelta'] = rd
+
+# Ensure openpyxl stub is loaded for tests
+try:
+    import openpyxl  # noqa: F401
+except Exception:
+    pass

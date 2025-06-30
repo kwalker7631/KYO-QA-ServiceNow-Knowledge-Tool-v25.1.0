@@ -77,3 +77,41 @@ STANDARDIZATION_RULES = {
 
 # --- EXCEL GENERATION ---
 META_COLUMN_NAME = "Meta"
+
+# Column name mapping used for ServiceNow import
+HEADER_MAPPING = {
+    "active": "Active",
+    "article_type": "Article type",
+    "author": "Author",
+    "category": "Category(category)",
+    "configuration_item": "Configuration item",
+    "confidence": "Confidence",
+    "description": "Description",
+    "attachment_link": "Attachment link",
+    "disable_commenting": "Disable commenting",
+    "disable_suggesting": "Disable suggesting",
+    "display_attachments": "Display attachments",
+    "flagged": "Flagged",
+    "governance": "Governance",
+    "kb_category": "Category(kb_category)",
+    "knowledge_base": "Knowledge base",
+    "meta": "Meta",
+    "meta_description": "Meta Description",
+    "ownership_group": "Ownership Group",
+    "published": "Published",
+    "scheduled_publish_date": "Scheduled publish date",
+    "short_description": "Short description",
+    "article_body": "Article body",
+    "topic": "Topic",
+    "problem_code": "Problem Code",
+    "models": "models",
+    "ticket_number": "Ticket#",
+    "valid_to": "Valid to",
+    "view_as_allowed": "View as allowed",
+    "wiki": "Wiki",
+    "sys_id": "Sys ID",
+    "file_name": "file_name",
+    "change_type": "Change Type",
+    "revision": "Revision",
+    "processing_status": "Processing Status",
+}
