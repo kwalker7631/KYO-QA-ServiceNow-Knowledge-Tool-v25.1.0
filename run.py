@@ -4,8 +4,15 @@ import sys, subprocess, importlib.metadata
 try: from version import VERSION
 except ImportError: VERSION = "24.0.6"
 
-# FIXED: Added 'ollama' to ensure the AI component can run.
-REQUIRED_PACKAGES = ["pandas", "openpyxl", "PyMuPDF", "pytesseract", "ollama"]
+# FIXED: Added 'ollama' and 'PySide6' to ensure the AI and GUI components can run.
+REQUIRED_PACKAGES = [
+    "pandas",
+    "openpyxl",
+    "PyMuPDF",
+    "pytesseract",
+    "ollama",
+    "PySide6",
+]
 
 def check_and_install_packages():
     print(f"--- Python Package Setup (v{VERSION}) ---")
