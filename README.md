@@ -1,4 +1,4 @@
-# KYO QA ServiceNow Knowledge Tool v24.0.6
+# KYO QA ServiceNow Knowledge Tool v25.0.1
 
 ## How to Set Up and Run (Modular, Fully Logged)
 
@@ -6,11 +6,12 @@
 
 - **Python 3.11.x (64-bit):** Download Python 3.11.9 Windows Installer or use a portable version in `python-3.11.9` folder.
 - **Tesseract OCR:** Tesseract Windows Installer (UB Mannheim) or place portable binary in `tesseract` folder.
-- **Dependencies:** `PyMuPDF`, `PySide6`, and other packages listed in `requirements.txt` (auto-installed via `start_tool.py`).
+- **Dependencies:** Listed in `requirements.txt` (auto-installed via `start_tool.py`). The GUI requires `PySide6` and PDF processing relies on `PyMuPDF`.
+- **Install PySide6:** If it doesn't auto-install, run `pip install PySide6` inside the `venv`.
 
 ### 2. Folder Structure
 
-KYO_QA_ServiceNow_Knowledge_Tool_v24.0.6/\
+KYO_QA_ServiceNow_Knowledge_Tool_v25.0.1/\
 ├── START.bat\
 ├── start_tool.py\
 ├── requirements.txt\
@@ -89,7 +90,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
 ### 3. Setup Steps
 
-1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v24.0.6`).
+1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v25.0.1`).
 2. Install Python 3.11.x or place portable Python in `python-3.11.9`. Optionally, install Tesseract or place in `tesseract` folder.
 3. Run `START.bat` (Windows) or `python start_tool.py`:
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
@@ -97,7 +98,9 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 4. Manual setup (if needed):
 
    ```bash
-   cd KYO_QA_ServiceNow_Knowledge_Tool_v24.0.6
+
+   cd KYO_QA_ServiceNow_Knowledge_Tool_v25.0.1
+
    rmdir /S /Q venv
    python -m venv venv
    venv\Scripts\python.exe -m ensurepip --default-pip
@@ -125,16 +128,16 @@ Run tests with:
 pytest -q
 ```
 
-Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `colorama`, and `PySide6`. Ensure Tesseract is installed or in `tesseract` folder for OCR tests.
+Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-dateutil`, `colorama`. Ensure Tesseract is installed or in `tesseract` folder for OCR tests.
 
 ### 6. Versioning
 
-- Current version: **v24.0.6**
+- Current version: **v25.0.1**
 - Updates tracked in `CHANGELOG.md`.
 - Use `update_version.py` to change versions:
 
   ```bash
-  python update_version.py v24.0.6 v24.0.7
+  python update_version.py v25.0.1 v25.0.2
   ```
 
 ### 7. Logging

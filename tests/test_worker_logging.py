@@ -54,8 +54,11 @@ def test_worker_exception_logs_and_signals(monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setitem(sys.modules, 'processing_engine', types.SimpleNamespace(
-        process_folder=boom, process_zip_archive=boom))
+    monkeypatch.setitem(
+        sys.modules,
+        'processing_engine',
+        types.SimpleNamespace(run_processing_job=boom)
+    )
 
     logged = {}
     def fake_exc(msg, exc_info=None):
@@ -63,7 +66,7 @@ def test_worker_exception_logs_and_signals(monkeypatch):
         logged['msg'] = msg
     monkeypatch.setattr(logger, 'exception', fake_exc)
 
-    w = Worker('folder', 'path', 'kb')
+    w = Worker('path', 'kb')
     w.update_status = types.SimpleNamespace(emit=lambda m: events.append(('status', m)))
     w.finished = types.SimpleNamespace(emit=lambda m: events.append(('finished', m)))
     w.update_progress = types.SimpleNamespace(emit=lambda v: None)
