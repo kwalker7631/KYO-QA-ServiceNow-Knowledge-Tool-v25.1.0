@@ -6,9 +6,27 @@ import json
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
-import openpyxl
-from openpyxl.styles import PatternFill, Alignment
-from openpyxl.utils import get_column_letter
+import sys
+import types
+try:
+    import openpyxl
+    from openpyxl.styles import PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+except Exception:  # pragma: no cover - fallback for test envs without openpyxl
+    openpyxl = types.ModuleType('openpyxl')
+    PatternFill = Alignment = object
+    def get_column_letter(idx):
+        return str(idx)
+    openpyxl.styles = types.SimpleNamespace(PatternFill=PatternFill, Alignment=Alignment)
+    openpyxl.utils = types.SimpleNamespace(get_column_letter=get_column_letter)
+    sys.modules.setdefault('openpyxl', openpyxl)
+
+try:
+    import pandas as pd
+except Exception:  # pragma: no cover - fallback when pandas missing
+    pd = types.ModuleType('pandas')
+
+from ai_extractor import ai_extract
 
 from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
 from custom_exceptions import FileLockError
@@ -247,3 +265,125 @@ def run_processing_job(job_info: dict, progress_queue: Queue, cancel_event):
         error_message = f"A critical error occurred: {e}"
         progress_queue.put({"type": "log", "tag": "error", "msg": error_message})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
+
+
+def _legacy_main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, ocr_cb, review_cb, cancel_event):
+    """Simplified processing loop used when openpyxl is unavailable."""
+    if is_file_locked(Path(kb_filepath)):
+        raise FileLockError(f"Knowledge Base file is locked: {kb_filepath}")
+
+    df = pd.read_excel(kb_filepath, engine='openpyxl')
+    updated_count, failed_count = 0, 0
+    for i, file_path in enumerate(files_to_process):
+        if cancel_event.is_set():
+            break
+
+        progress_cb(f"Processing {i+1}/{len(files_to_process)}: {file_path.name}")
+        status_cb("file", f"Opening {file_path.name}...")
+
+        try:
+            target_rows = df.index[df['Description'] == file_path.name].tolist()
+            if not target_rows:
+                continue
+
+            needs_ocr = _is_ocr_needed(file_path)
+            if needs_ocr:
+                status_cb("OCR", f"Performing OCR on {file_path.name}...")
+
+            text = extract_text_from_pdf(file_path, ocr_cb if needs_ocr else None)
+            if not text:
+                status_cb("FAIL", f"Failed: Could not extract text from {file_path.name}")
+                failed_count += 1
+                continue
+
+            status_cb("AI", f"Analyzing content of {file_path.name}...")
+            extracted_data = ai_extract(text, file_path)
+
+            if extracted_data.get("needs_review"):
+                status_cb("NEEDS_REVIEW", f"{file_path.name} flagged for manual review.")
+                review_cb()
+
+            row_index = target_rows[0]
+            formatted_record = map_to_servicenow_format(extracted_data, file_path.name)
+            for header_name, value in formatted_record.items():
+                if header_name in df.columns:
+                    if getattr(pd, 'isna', lambda x: x is None)(df.at[row_index, header_name]) or str(df.at[row_index, header_name]).strip() == '':
+                        df.at[row_index, header_name] = value
+            updated_count += 1
+        except Exception:
+            status_cb("FAIL", f"Critical error on {file_path.name}")
+            failed_count += 1
+
+    if updated_count > 0:
+        df.to_excel(kb_filepath, index=False, engine='openpyxl')
+        create_success_log(f"{updated_count} record(s) updated, {failed_count} file(s) failed.")
+    else:
+        create_failure_log(f"{updated_count} record(s) updated, {failed_count} file(s) failed.", "No updates")
+
+    return kb_filepath, updated_count, failed_count
+
+
+def process_folder(folder_path, kb_filepath, progress_cb, status_cb, ocr_cb, review_cb, cancel_event):
+    """Public wrapper to process a folder of PDFs."""
+    files = [p for p in Path(folder_path).iterdir() if p.suffix.lower() in ['.pdf', '.zip']]
+    if hasattr(openpyxl, 'load_workbook'):
+        job = {"excel_path": kb_filepath, "input_path": folder_path}
+        q = Queue()
+        run_processing_job(job, q, cancel_event)
+        while not q.empty():
+            item = q.get()
+            if item.get("type") == "increment_counter" and item.get("counter") == "ocr":
+                ocr_cb()
+            if item.get("type") == "review_item":
+                review_cb()
+    else:
+        return _legacy_main_processing_loop(files, kb_filepath, progress_cb, status_cb, ocr_cb, review_cb, cancel_event)
+
+
+def process_zip_archive(zip_path, kb_filepath, progress_cb, status_cb, ocr_cb, review_cb, cancel_event):
+    """Process PDFs from within a zip archive."""
+    temp_dir = get_temp_dir()
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            pdf_names = [f for f in zip_ref.namelist() if f.lower().endswith('.pdf') and not f.startswith('__MACOSX')]
+            if not pdf_names:
+                return kb_filepath, 0, 0
+            zip_ref.extractall(temp_dir, members=pdf_names)
+            files = [temp_dir / name for name in pdf_names]
+            if hasattr(openpyxl, 'load_workbook'):
+                job = {"excel_path": kb_filepath, "input_path": files}
+                q = Queue()
+                run_processing_job(job, q, cancel_event)
+                while not q.empty():
+                    item = q.get()
+                    if item.get("type") == "increment_counter" and item.get("counter") == "ocr":
+                        ocr_cb()
+                    if item.get("type") == "review_item":
+                        review_cb()
+            else:
+                return _legacy_main_processing_loop(files, kb_filepath, progress_cb, status_cb, ocr_cb, review_cb, cancel_event)
+    finally:
+        cleanup_temp_files(temp_dir)
+
+
+def map_to_servicenow_format(extracted_data, filename):
+    """Map extracted data keys to the ServiceNow Excel headers."""
+    from config import HEADER_MAPPING
+    record = {header: "" for header in HEADER_MAPPING.values()}
+    record[HEADER_MAPPING["file_name"]] = filename
+    needs_review = bool(extracted_data.get("needs_review", False))
+    record[HEADER_MAPPING["needs_review"]] = needs_review
+    record[HEADER_MAPPING["processing_status"]] = "Needs Review" if needs_review else "Success"
+    for key, header in HEADER_MAPPING.items():
+        if key in ("file_name", "needs_review", "processing_status"):
+            continue
+        if key == "short_description":
+            record[header] = extracted_data.get("subject", "")
+        elif key == "description":
+            record[header] = extracted_data.get("full_qa_number", "")
+        elif key == "meta":
+            record[header] = extracted_data.get("Meta", "")
+        else:
+            record[header] = extracted_data.get(key, "")
+    return record
+

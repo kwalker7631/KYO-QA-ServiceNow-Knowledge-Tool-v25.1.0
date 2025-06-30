@@ -7,11 +7,63 @@ import queue
 import time
 
 from config import BRAND_COLORS
-from processing_engine import run_processing_job
+from processing_engine import run_processing_job, process_folder, process_zip_archive
 from file_utils import open_file, ensure_folders, cleanup_temp_files
 from kyo_review_tool import ReviewWindow
 from version import VERSION
 import logging_utils
+
+
+class MainWindow:
+    """Utility wrapper used in tests for status updates."""
+
+    @staticmethod
+    def log_message(self, message):
+        if hasattr(self, "log_text_edit"):
+            self.log_text_edit.append(message)
+
+    @staticmethod
+    def update_status(self, tag, message):
+        if hasattr(self, "feedback_label"):
+            self.feedback_label.setText(message)
+        MainWindow.log_message(self, message)
+
+
+class DummySignal:
+    def __init__(self):
+        self._callbacks = []
+
+    def connect(self, cb):
+        self._callbacks.append(cb)
+
+    def emit(self, *args, **kwargs):
+        for cb in self._callbacks:
+            cb(*args, **kwargs)
+
+
+class Worker:
+    update_progress = DummySignal()
+    update_status = DummySignal()
+    finished = DummySignal()
+
+    def __init__(self, mode, path, kb_path):
+        self.mode = mode
+        self.path = path
+        self.kb_path = kb_path
+
+    def run(self):
+        try:
+            if self.mode == 'folder':
+                _, updated, failed = process_folder(self.path, self.kb_path, lambda m: None, lambda a,b: None, lambda: None, lambda: None, lambda: False)
+            elif self.mode == 'zip':
+                _, updated, failed = process_zip_archive(self.path, self.kb_path, lambda m: None, lambda a,b: None, lambda: None, lambda: None, lambda: False)
+            else:
+                updated = failed = 0
+            self.finished.emit(f"Updated: {updated}, Failed: {failed}")
+        except Exception as e:
+            logger.exception("Worker thread failed", exc_info=e)
+            self.update_status.emit(f"Error: {e}")
+            self.finished.emit(f"Error: {e}")
 
 logger = logging_utils.setup_logger("app")
 

@@ -6,12 +6,25 @@ from pathlib import Path
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
+
+class QtWidgetHandler(logging.Handler):
+    """Simple handler that appends log messages to a QTextEdit-like widget."""
+
+    def __init__(self, text_edit):
+        super().__init__()
+        self.text_edit = text_edit
+
+    def emit(self, record: logging.LogRecord) -> None:
+        msg = self.format(record)
+        if hasattr(self.text_edit, "append"):
+            self.text_edit.append(msg)
+
 LOG_DIR = Path.cwd() / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
 
-def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
+def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logger:
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)-8s] [%(name)-20s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
@@ -32,6 +45,13 @@ def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
         root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
+
+    if log_widget:
+        if not any(isinstance(h, QtWidgetHandler) and getattr(h, 'text_edit', None) is log_widget for h in root_logger.handlers):
+            gui_handler = QtWidgetHandler(log_widget)
+            gui_handler.setFormatter(formatter)
+            gui_handler.setLevel(level)
+            root_logger.addHandler(gui_handler)
     
     return logging.getLogger(name)
 
