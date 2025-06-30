@@ -1,31 +1,25 @@
-# KYO QA ServiceNow Custom Exceptions
-from version import VERSION
+# custom_exceptions.py - Custom exception classes for KYO QA Tool
 
-class QAExtractionError(Exception):
-    """Raised when QA data extraction fails"""
+class KYOQAToolError(Exception):
+    """Base exception for all KYO QA Tool errors."""
     pass
 
-class FileProcessingError(Exception):
-    """Raised when file processing fails"""
+class FileLockError(KYOQAToolError):
+    """Raised when a file is locked by another process."""
     pass
 
-class ExcelGenerationError(Exception):
-    """Raised when Excel generation fails"""
+class ExcelGenerationError(KYOQAToolError):
+    """Raised when Excel file generation fails."""
     pass
 
-class OCRError(Exception):
-    """Raised when OCR text extraction fails"""
+class PDFExtractionError(KYOQAToolError):
+    """Raised when PDF text extraction fails."""
     pass
 
-class ZipExtractionError(Exception):
-    """Raised when ZIP extraction fails"""
+class PatternMatchError(KYOQAToolError):
+    """Raised when pattern matching fails."""
     pass
 
-class ConfigurationError(Exception):
-    """Raised when a configuration error occurs"""
-    pass
-
-# --- NEW UTILITY EXCEPTION ---
-class FileLockError(Exception):
-    """Raised when a file is locked and cannot be written to."""
+class ConfigurationError(KYOQAToolError):
+    """Raised when there's a configuration issue."""
     pass

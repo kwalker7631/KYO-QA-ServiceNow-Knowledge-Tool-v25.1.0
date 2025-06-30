@@ -80,16 +80,59 @@ def create_status_and_log_section(parent, app_instance):
     # Summary Frame
     summary_frame = ttk.Frame(container, style="Dark.TFrame", padding=10)
     summary_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=(5,0))
-    # ... summary labels
+    summary_frame.columnconfigure(1, weight=1)
+    summary_frame.columnconfigure(3, weight=1)
+    summary_frame.columnconfigure(5, weight=1)
+    summary_frame.columnconfigure(7, weight=1)
+    
+    # Create summary labels
+    ttk.Label(summary_frame, text="✅ Pass:", style="Status.Header.TLabel").grid(row=0, column=0, sticky="w", padx=5)
+    ttk.Label(summary_frame, textvariable=app_instance.count_pass, style="Status.Count.TLabel").grid(row=0, column=1, sticky="w", padx=5)
+    ttk.Label(summary_frame, text="❌ Fail:", style="Status.Header.TLabel").grid(row=0, column=2, sticky="w", padx=5)
+    ttk.Label(summary_frame, textvariable=app_instance.count_fail, style="Status.Count.TLabel").grid(row=0, column=3, sticky="w", padx=5)
+    ttk.Label(summary_frame, text="🔍 Review:", style="Status.Header.TLabel").grid(row=0, column=4, sticky="w", padx=5)
+    ttk.Label(summary_frame, textvariable=app_instance.count_review, style="Status.Count.TLabel").grid(row=0, column=5, sticky="w", padx=5)
+    ttk.Label(summary_frame, text="📷 OCR:", style="Status.Header.TLabel").grid(row=0, column=6, sticky="w", padx=5)
+    ttk.Label(summary_frame, textvariable=app_instance.count_ocr, style="Status.Count.TLabel").grid(row=0, column=7, sticky="w", padx=5)
     
     # Review Frame
     review_frame = ttk.Frame(container, style="Dark.TFrame", padding=(5, 10))
     review_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=(5,0))
-    # ... review frame setup
+    review_frame.columnconfigure(0, weight=1)
+    
+    review_label = ttk.Label(review_frame, text="📋 Files Needing Review:", style="Status.Header.TLabel")
+    review_label.grid(row=0, column=0, sticky="w", padx=5)
+    
+    # Create review listbox with scrollbar
+    review_list_frame = ttk.Frame(review_frame)
+    review_list_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
+    review_list_frame.columnconfigure(0, weight=1)
+    
+    app_instance.review_listbox = tk.Listbox(review_list_frame, height=3, font=("Consolas", 9))
+    app_instance.review_listbox.grid(row=0, column=0, sticky="ew")
+    
+    review_scrollbar = ttk.Scrollbar(review_list_frame, orient="vertical", command=app_instance.review_listbox.yview)
+    review_scrollbar.grid(row=0, column=1, sticky="ns")
+    app_instance.review_listbox.config(yscrollcommand=review_scrollbar.set)
 
     # Log Frame
     log_text_frame = ttk.Frame(container)
     log_text_frame.grid(row=3, column=0, sticky="nsew", padx=5, pady=5)
-    # ... log setup
+    log_text_frame.columnconfigure(0, weight=1)
+    log_text_frame.rowconfigure(0, weight=1)
+    
+    # Create log text widget with scrollbar
+    app_instance.log_text = tk.Text(log_text_frame, wrap="word", height=10, font=("Consolas", 9))
+    app_instance.log_text.grid(row=0, column=0, sticky="nsew")
+    
+    log_scrollbar = ttk.Scrollbar(log_text_frame, orient="vertical", command=app_instance.log_text.yview)
+    log_scrollbar.grid(row=0, column=1, sticky="ns")
+    app_instance.log_text.config(yscrollcommand=log_scrollbar.set)
+    
+    # Configure log text tags for colored output
+    app_instance.log_text.tag_config("info", foreground="black")
+    app_instance.log_text.tag_config("success", foreground="green")
+    app_instance.log_text.tag_config("warning", foreground="orange")
+    app_instance.log_text.tag_config("error", foreground="red")
     
     return container

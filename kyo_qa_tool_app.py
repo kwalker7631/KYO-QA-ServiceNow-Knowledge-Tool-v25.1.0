@@ -23,7 +23,14 @@ logger = logging_utils.setup_logger("app")
 class KyoQAToolApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        # --- App State & UI Vars ---
+        
+        # Initialize counters FIRST (before any widgets)
+        self.count_pass = tk.IntVar(value=0)
+        self.count_fail = tk.IntVar(value=0)
+        self.count_review = tk.IntVar(value=0)
+        self.count_ocr = tk.IntVar(value=0)
+        
+        # Initialize all other variables
         self.is_processing = False
         self.is_paused = False
         self.result_file_path = None
@@ -39,13 +46,17 @@ class KyoQAToolApp(tk.Tk):
         self.status_current_file = tk.StringVar(value="Idle")
         self.progress_value = tk.DoubleVar(value=0)
         self.time_remaining_var = tk.StringVar(value="")
-        self.count_pass, self.count_fail, self.count_review, self.count_ocr = (tk.IntVar(value=0) for _ in range(4))
         self.led_status_var = tk.StringVar(value="[Idle]")
 
+        # Now set up styles and create widgets
         self.style = ttk.Style(self)
         self._setup_window_styles()
         self._create_widgets()
+        
+        # Ensure folders exist
         ensure_folders()
+        
+        # Start the response queue processor
         self.after(100, self.process_response_queue)
     
     def _setup_window_styles(self):
@@ -57,7 +68,39 @@ class KyoQAToolApp(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.style.theme_use("clam")
-        # ... all style configurations
+        
+        # Configure all styles
+        self.style.configure("TFrame", background=BRAND_COLORS["background"])
+        self.style.configure("Header.TFrame", background=BRAND_COLORS["background"])
+        self.style.configure("Dark.TFrame", background=BRAND_COLORS["frame_background"])
+        
+        self.style.configure("TLabel", background=BRAND_COLORS["background"])
+        self.style.configure("Status.TLabel", background=BRAND_COLORS["frame_background"], font=("Segoe UI", 9))
+        self.style.configure("Status.Header.TLabel", background=BRAND_COLORS["frame_background"], font=("Segoe UI", 9, "bold"))
+        self.style.configure("Status.Count.TLabel", background=BRAND_COLORS["frame_background"], font=("Segoe UI", 10, "bold"))
+        self.style.configure("LED.TLabel", background=BRAND_COLORS["frame_background"], font=("Consolas", 10, "bold"))
+        
+        self.style.configure("TLabelFrame", background=BRAND_COLORS["background"], relief="groove", borderwidth=2)
+        self.style.configure("TLabelFrame.Label", background=BRAND_COLORS["background"], font=("Segoe UI", 10, "bold"))
+        
+        self.style.configure("TButton", font=("Segoe UI", 9))
+        self.style.map("TButton",
+            background=[('active', '#D0D0D0'), ('!active', '#F0F0F0')],
+            foreground=[('active', 'black'), ('!active', 'black')]
+        )
+        
+        self.style.configure("Red.TButton", font=("Segoe UI", 11, "bold"))
+        self.style.map("Red.TButton",
+            background=[('active', '#CC0025'), ('!active', BRAND_COLORS["kyocera_red"])],
+            foreground=[('active', 'white'), ('!active', 'white')]
+        )
+        
+        self.style.configure("TEntry", fieldbackground="white", borderwidth=1, relief="solid")
+        self.style.configure("TProgressbar", background=BRAND_COLORS["accent_blue"])
+        self.style.configure("Blue.Horizontal.TProgressbar", background=BRAND_COLORS["accent_blue"])
+        
+        # Additional styles
+        self.style.configure("TSeparator", background="#E0E0E0")
     
     def _create_widgets(self):
         create_main_header(self, VERSION, BRAND_COLORS)
@@ -170,7 +213,7 @@ class KyoQAToolApp(tk.Tk):
         getattr(logger, tag, logger.info)(message)
         if hasattr(self, "log_text"):
             try:
-                self.log_text.insert(tk.END, message + "\n")
+                self.log_text.insert(tk.END, message + "\n", tag)
                 self.log_text.see(tk.END)
             except tk.TclError:
                 pass
@@ -203,7 +246,15 @@ class KyoQAToolApp(tk.Tk):
         self.log_message(f"Job finished: {status} in {elapsed:.1f}s", "info")
         self.update_ui_for_finish()
 
-    def process_response_queue(self):  # pragma: no cover - UI loop
+    def update_review_listbox(self):
+        """Update the review listbox with current reviewable files."""
+        if hasattr(self, 'review_listbox'):
+            self.review_listbox.delete(0, tk.END)
+            for item in self.reviewable_files:
+                display_text = f"{item.get('filename', 'Unknown')} - {item.get('reason', 'Review needed')}"
+                self.review_listbox.insert(tk.END, display_text)
+
+    def process_response_queue(self):
         while not self.response_queue.empty():
             msg = self.response_queue.get()
             mtype = msg.get("type")
@@ -218,13 +269,26 @@ class KyoQAToolApp(tk.Tk):
                 self.progress_value.set((cur / total) * 100)
             elif mtype == "increment_counter":
                 var = getattr(self, f"count_{msg.get('counter')}", None)
-                if isinstance(var, tk.Variable):
+                if isinstance(var, tk.IntVar):
                     var.set(var.get() + 1)
             elif mtype == "review_item":
                 self.reviewable_files.append(msg.get("data"))
+                self.count_review.set(self.count_review.get() + 1)
+                self.update_review_listbox()  # Add this line
             elif mtype == "result_path":
                 self.result_file_path = msg.get("path")
             elif mtype == "finish":
                 self.handle_finished_job(msg.get("status", "Complete"))
 
         self.after(100, self.process_response_queue)
+
+
+if __name__ == "__main__":
+    try:
+        app = KyoQAToolApp()
+        app.mainloop()
+    except Exception as e:
+        print(f"Failed to start application: {e}")
+        import traceback
+        traceback.print_exc()
+        input("Press Enter to exit...")

@@ -64,13 +64,7 @@ def setup_environment():
     venv_python = get_venv_python_path()
     if VENV_DIR.exists() and venv_python.exists():
         print("✓ Virtual environment folder found.")
-        #==============================================================
-        # --- THE DEFINITIVE FIX: Use `pip check` for instant verification ---
-        #==============================================================
         if not run_command([str(venv_python), "-m", "pip", "check"], "Verifying dependencies"):
-        #==============================================================
-        # --- END OF FIX ---
-        #==============================================================
             print("[WARNING] Dependency check failed. Environment may be corrupt. Rebuilding...")
             return first_time_setup()
     else:
@@ -87,19 +81,50 @@ def first_time_setup():
 
     venv_python = get_venv_python_path()
     print(f"\n--- Installing Dependencies from {REQUIREMENTS_FILE.name} ---")
+    print("This may take a few minutes on first run...\n")
+    
+    # First upgrade pip
+    print("📦 Upgrading pip...")
+    try:
+        subprocess.check_call([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], 
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("✓ Pip upgraded successfully\n")
+    except subprocess.CalledProcessError:
+        print("⚠ Warning: Could not upgrade pip\n")
+    
+    # Install packages with visual progress
     command = [str(venv_python), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)]
     try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
-        while True:
-            output = process.stdout.readline()
-            if output == '' and process.poll() is not None: break
-            if output: print(f"  {output.strip()}")
-        if process.returncode != 0: raise subprocess.CalledProcessError(process.returncode, command)
-        print("\n✓ All dependencies installed successfully.")
-    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Run pip install with real-time output
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                 text=True, encoding='utf-8', errors='replace', bufsize=1)
+        
+        # Show the output line by line
+        for line in iter(process.stdout.readline, ''):
+            if line:
+                # Clean up the line and print it
+                line = line.strip()
+                if line.startswith("Collecting") or line.startswith("Installing"):
+                    print(f"  {COLOR_INFO}→{COLOR_RESET} {line}")
+                elif "Successfully installed" in line:
+                    print(f"\n{COLOR_SUCCESS}✓ {line}{COLOR_RESET}")
+                elif "already satisfied" in line:
+                    # Skip these to reduce clutter
+                    pass
+                elif line and not line.startswith("  "):
+                    print(f"  {line}")
+        
+        process.wait()
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, command)
+            
+        print(f"\n{COLOR_SUCCESS}✓ All dependencies installed successfully.{COLOR_RESET}")
+        return True
+        
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"\n{COLOR_ERROR}✗ Failed to install dependencies.{COLOR_RESET}")
+        print(f"Error: {e}")
         return False
-    return True
 
 def initialize_colors():
     global COLOR_INFO, COLOR_SUCCESS, COLOR_WARNING, COLOR_ERROR, COLOR_RESET
