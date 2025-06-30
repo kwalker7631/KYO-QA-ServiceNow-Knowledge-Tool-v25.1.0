@@ -1,4 +1,5 @@
 # kyo_qa_tool_app.py
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path

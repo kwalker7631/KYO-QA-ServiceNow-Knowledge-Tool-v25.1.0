@@ -66,3 +66,25 @@ if 'dateutil.relativedelta' not in sys.modules:
     rd = types.ModuleType('dateutil.relativedelta')
     rd.relativedelta = lambda **kw: None
     sys.modules['dateutil.relativedelta'] = rd
+
+if 'openpyxl' not in sys.modules:
+    openpyxl = types.ModuleType('openpyxl')
+    openpyxl.load_workbook = lambda *a, **k: types.SimpleNamespace(active=None)
+    openpyxl.Workbook = lambda *a, **k: types.SimpleNamespace(active=None, save=lambda *a, **k: None)
+    styles = types.ModuleType('styles')
+    styles.PatternFill = object
+    styles.Alignment = object
+    openpyxl.styles = styles
+    formatting = types.ModuleType('formatting')
+    rule = types.ModuleType('rule')
+    rule.FormulaRule = object
+    formatting.rule = rule
+    openpyxl.formatting = formatting
+    utils = types.ModuleType('utils')
+    utils.get_column_letter = lambda x: x
+    openpyxl.utils = utils
+    sys.modules['openpyxl'] = openpyxl
+    sys.modules['openpyxl.styles'] = styles
+    sys.modules['openpyxl.formatting'] = formatting
+    sys.modules['openpyxl.formatting.rule'] = rule
+    sys.modules['openpyxl.utils'] = utils

@@ -16,6 +16,8 @@ from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
 from file_utils import (is_file_locked)
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
+from ai_extractor import ai_extract
+from logging_utils import create_success_log, create_failure_log
 
 CACHE_DIR = Path(__file__).parent / ".cache"
 CACHE_DIR.mkdir(exist_ok=True)
@@ -273,3 +275,45 @@ def process_zip_archive(zip_path, kb_filepath, *_, **__):
             zf.extractall(tmpdir)
         job = {"excel_path": kb_filepath, "input_path": tmpdir}
         run_processing_job(job, Queue(), threading.Event())
+
+
+def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, ocr_cb, review_cb, cancel_event):
+    """Simplified loop retained for backward compatibility in tests."""
+    updated_count, failed_count = 0, 0
+    for i, file_path in enumerate(files_to_process):
+        if cancel_event.is_set():
+            break
+
+        progress_cb(f"Processing {i + 1}/{len(files_to_process)}: {file_path.name}")
+        status_cb("file", f"Opening {file_path.name}...")
+        try:
+            needs_ocr = _is_ocr_needed(file_path)
+            if needs_ocr:
+                status_cb("OCR", f"Performing OCR on {file_path.name}...")
+            text = extract_text_from_pdf(file_path)
+            if needs_ocr:
+                ocr_cb()
+            if not text:
+                status_cb("FAIL", f"Failed: Could not extract text from {file_path.name}")
+                failed_count += 1
+                continue
+
+            status_cb("AI", f"Analyzing content of {file_path.name}...")
+            extracted = ai_extract(text, file_path)
+            if extracted.get("needs_review"):
+                status_cb("NEEDS_REVIEW", f"{file_path.name} flagged for manual review.")
+                review_cb()
+            else:
+                status_cb("SUCCESS", f"Successfully extracted data from {file_path.name}.")
+
+            updated_count += 1
+        except Exception:
+            status_cb("FAIL", f"Critical error on {file_path.name}")
+            failed_count += 1
+
+    if updated_count > 0:
+        create_success_log(f"{updated_count} record(s) updated, {failed_count} file(s) failed.")
+    else:
+        create_failure_log(f"{updated_count} record(s) updated, {failed_count} file(s) failed.", "No updates")
+
+    return kb_filepath, updated_count, failed_count
