@@ -58,6 +58,18 @@ from logging_utils import create_success_log, create_failure_log
 CACHE_DIR = Path(__file__).parent / ".cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
+
+def map_to_servicenow_format(data: dict, filename: str) -> dict:
+    """Map extracted data to ServiceNow column headers."""
+    return {
+        HEADER_MAPPING["short_description"]: data.get("subject") or filename,
+        HEADER_MAPPING["models"]: data.get("models", ""),
+        HEADER_MAPPING["processing_status"]: (
+            "Needs Review" if data.get("needs_review") else "Success"
+        ),
+        HEADER_MAPPING["file_name"]: filename,
+    }
+
 def get_cache_path(pdf_path: Path) -> Path:
     """Generates a unique cache file path based on the PDF's name and size."""
     try:
@@ -345,7 +357,6 @@ def process_zip_archive(zip_path, kb_filepath, *_, **__):
             zf.extractall(tmpdir)
         job = {"excel_path": kb_filepath, "input_path": tmpdir}
         run_processing_job(job, Queue(), threading.Event())
-
 
 def _main_processing_loop(files_to_process, kb_filepath, progress_cb, status_cb, ocr_cb, review_cb, cancel_event):
     """Simplified loop retained for backward compatibility in tests."""
