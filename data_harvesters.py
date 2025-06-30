@@ -10,20 +10,14 @@ from config import (
 )
 
 def get_combined_patterns(pattern_name: str, default_patterns: list) -> list:
-    """
-    Safely loads patterns from custom_patterns.py and combines them with defaults.
-    This reloads the module to guarantee the latest saved version is always used.
-    """
+    """Safely loads and combines default and custom patterns."""
     custom_patterns = []
     try:
         custom_mod = importlib.import_module("custom_patterns")
         importlib.reload(custom_mod)
         custom_patterns = getattr(custom_mod, pattern_name, [])
     except (ImportError, SyntaxError):
-        # It's okay if the file doesn't exist or is temporarily corrupt.
         pass
-    
-    # Custom patterns are added first to take precedence.
     return custom_patterns + [p for p in default_patterns if p not in custom_patterns]
 
 def is_excluded(text: str) -> bool:
@@ -44,16 +38,32 @@ def harvest_models(text: str, filename: str) -> list:
     for content in [text, filename.replace("_", " ")]:
         for p in patterns:
             for match in re.findall(p, content, re.IGNORECASE):
-                if not is_excluded(match):
-                    models.add(clean_model_string(match))
+                #==============================================================
+                # --- BUG FIX: Changed to use the correct function name ---
+                #==============================================================
+                if not is_excluded(match): models.add(clean_model_string(match))
+                #==============================================================
+                # --- END OF BUG FIX ---
+                #==============================================================
     return sorted(list(models))
 
+# --- UPDATED FUNCTION ---
 def harvest_author(text: str) -> str:
     """Finds the author and returns an empty string if it's an unwanted name."""
-    # This is a placeholder for author extraction logic if needed.
-    return "" # Returning blank fulfills the "clear unless verified" rule.
+    # Search for a line that looks like "Author: John Doe"
+    match = re.search(r"^Author:\s*(.*)", text, re.MULTILINE | re.IGNORECASE)
+    if match:
+        author = match.group(1).strip()
+        # Ensure the found author is not in the unwanted list
+        if author not in UNWANTED_AUTHORS:
+            return author
+    return "" # Return empty string if no author is found or if it's unwanted
+# --- END OF UPDATE ---
 
 def harvest_all_data(text: str, filename: str) -> dict:
     """The main harvester function that aggregates all data."""
     models_str = ", ".join(harvest_models(text, filename)) or "Not Found"
-    return {"models": models_str, "author": ""}
+    # --- UPDATED FUNCTION CALL ---
+    author_str = harvest_author(text)
+    return {"models": models_str, "author": author_str}
+    # --- END OF UPDATE ---

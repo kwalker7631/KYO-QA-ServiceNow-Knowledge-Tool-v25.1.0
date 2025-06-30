@@ -1,6 +1,6 @@
 # KYO QA ServiceNow OCR Utilities
 from version import VERSION
-import fitz # PyMuPDF
+import fitz  # PyMuPDF
 import os
 from pathlib import Path
 from logging_utils import setup_logger, log_info, log_error, log_warning
@@ -37,7 +37,7 @@ def init_tesseract():
                 log_info(logger, "Tesseract found in system PATH")
                 return True
         except Exception:
-            pass # Ignore errors if the command fails
+            pass  # Ignore errors if the command fails
             
         log_warning(logger, "Tesseract OCR not found. Image-based OCR will be disabled.")
         return False
@@ -50,8 +50,7 @@ def init_tesseract():
 
 TESSERACT_AVAILABLE = init_tesseract()
 
-# --- NEW HELPER FUNCTION ---
-def _is_ocr_needed(pdf_path: Path | str) -> bool:
+def _is_ocr_needed(pdf_path):
     """
     Pre-checks a PDF to see if it's image-based and likely requires OCR.
     It does this by checking the amount of extractable text.
@@ -64,7 +63,7 @@ def _is_ocr_needed(pdf_path: Path | str) -> bool:
             # Check the total text length of the document.
             # If it's very short, it's likely an image-based PDF.
             text_length = sum(len(page.get_text("text")) for page in doc)
-            if text_length < 150: # This threshold can be adjusted
+            if text_length < 150:  # This threshold can be adjusted
                 return True
     except Exception as e:
         log_warning(logger, f"Could not pre-check PDF {Path(pdf_path).name} for OCR needs: {e}")
@@ -72,7 +71,7 @@ def _is_ocr_needed(pdf_path: Path | str) -> bool:
         return True
     return False
 
-def extract_text_from_pdf(pdf_path: Path | str) -> str:
+def extract_text_from_pdf(pdf_path):
     """Extract text from a PDF file, using OCR if needed."""
     try:
         pdf_path = Path(pdf_path)
@@ -91,12 +90,12 @@ def extract_text_from_pdf(pdf_path: Path | str) -> str:
             return extract_text_with_ocr(pdf_path)
         else:
             log_warning(logger, f"No text found in {pdf_path.name} and OCR is not available.")
-            return "" # Return empty string if no text and no OCR
+            return ""  # Return empty string if no text and no OCR
     except Exception as exc:
         log_error(logger, f"Failed to extract text from {pdf_path.name}: {exc}")
         return ""
 
-def extract_text_with_ocr(pdf_path: Path | str) -> str:
+def extract_text_with_ocr(pdf_path):
     """Extract text from a PDF using OCR on its rendered images."""
     if not TESSERACT_AVAILABLE:
         log_warning(logger, "Tesseract OCR not available, cannot perform OCR.")
@@ -126,7 +125,7 @@ def extract_text_with_ocr(pdf_path: Path | str) -> str:
         log_error(logger, f"OCR extraction failed for {pdf_path.name}: {e}")
         return ""
 
-def get_pdf_metadata(pdf_path: Path | str) -> dict:
+def get_pdf_metadata(pdf_path):
     """Extract metadata from a PDF file."""
     try:
         with fitz.open(pdf_path) as doc:

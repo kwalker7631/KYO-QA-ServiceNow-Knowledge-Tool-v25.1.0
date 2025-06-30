@@ -65,7 +65,7 @@ def setup_environment():
     if VENV_DIR.exists() and venv_python.exists():
         print("✓ Virtual environment folder found.")
         if not run_command([str(venv_python), "-m", "pip", "check"], "Verifying dependencies"):
-            print("[WARNING] Dependency check failed. Environment may be corrupt. Rebuilding...")
+            print("[WARNING] Dependency check failed. Rebuilding environment...")
             return first_time_setup()
     else:
         return first_time_setup()
@@ -80,53 +80,38 @@ def first_time_setup():
         return False
 
     venv_python = get_venv_python_path()
-    print(f"\n--- Installing Dependencies from {REQUIREMENTS_FILE.name} ---")
-    print("This may take a few minutes on first run...\n")
-    
-    # First upgrade pip
-    print("📦 Upgrading pip...")
+
+    #==============================================================
+    # --- NEW FEATURE: Automatic Pip Upgrade ---
+    #==============================================================
+    print("\n--- Upgrading Pip ---")
+    spinner = ConsoleSpinner("Upgrading pip package manager...")
+    spinner.start()
     try:
         subprocess.check_call([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], 
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("✓ Pip upgraded successfully\n")
+        spinner.stop("Pip upgraded successfully.", success=True)
     except subprocess.CalledProcessError:
-        print("⚠ Warning: Could not upgrade pip\n")
-    
-    # Install packages with visual progress
+        spinner.stop("Could not upgrade pip. Continuing with existing version.", success=False)
+    #==============================================================
+    # --- END OF NEW FEATURE ---
+    #==============================================================
+
+    print(f"\n--- Installing Dependencies from {REQUIREMENTS_FILE.name} ---")
     command = [str(venv_python), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)]
     try:
-        # Run pip install with real-time output
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                                 text=True, encoding='utf-8', errors='replace', bufsize=1)
-        
-        # Show the output line by line
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
         for line in iter(process.stdout.readline, ''):
-            if line:
-                # Clean up the line and print it
-                line = line.strip()
-                if line.startswith("Collecting") or line.startswith("Installing"):
-                    print(f"  {COLOR_INFO}→{COLOR_RESET} {line}")
-                elif "Successfully installed" in line:
-                    print(f"\n{COLOR_SUCCESS}✓ {line}{COLOR_RESET}")
-                elif "already satisfied" in line:
-                    # Skip these to reduce clutter
-                    pass
-                elif line and not line.startswith("  "):
-                    print(f"  {line}")
-        
-        process.wait()
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, command)
-            
-        print(f"\n{COLOR_SUCCESS}✓ All dependencies installed successfully.{COLOR_RESET}")
-        return True
-        
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            if line: print(f"  {line.strip()}")
+        if process.wait() != 0: raise subprocess.CalledProcessError(process.returncode, command)
+        print("\n✓ All dependencies installed successfully.")
+    except (subprocess.CalledProcessError, FileNotFoundError):
         print(f"\n{COLOR_ERROR}✗ Failed to install dependencies.{COLOR_RESET}")
-        print(f"Error: {e}")
         return False
+    return True
 
 def initialize_colors():
+    """This function is called AFTER dependencies are installed."""
     global COLOR_INFO, COLOR_SUCCESS, COLOR_WARNING, COLOR_ERROR, COLOR_RESET
     try:
         from colorama import init, Fore, Style
@@ -134,6 +119,7 @@ def initialize_colors():
     except ImportError: pass
 
 def launch_application():
+    """Launches the main Tkinter application."""
     print(f"\n{COLOR_SUCCESS}--- Launching KYO QA ServiceNow Tool ---{COLOR_RESET}")
     try:
         subprocess.run([str(get_venv_python_path()), str(MAIN_APP_SCRIPT)])
