@@ -3,6 +3,7 @@ import os
 import zipfile
 from datetime import datetime
 from pathlib import Path
+from version import get_version
 
 # Paths
 project_root = Path(__file__).parent
@@ -10,7 +11,7 @@ output_dir = project_root / "dist"
 output_dir.mkdir(exist_ok=True)
 
 # Metadata
-VERSION = "v25.0.1"
+VERSION = get_version()
 ts = datetime.now().strftime("%Y%m%d_%H%M")
 out_zip = output_dir / f"KYO_QA_Knowledge_Tool_{VERSION}_{ts}.zip"
 
