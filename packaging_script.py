@@ -1,12 +1,8 @@
 # KYO QA Packaging Script
-import os
 import zipfile
 from datetime import datetime
 from pathlib import Path
 from version import get_version
-
-# Use central version definition
-from version import VERSION
 
 # Paths
 project_root = Path(__file__).parent
@@ -14,9 +10,9 @@ output_dir = project_root / "dist"
 output_dir.mkdir(exist_ok=True)
 
 # Metadata
-VERSION = get_version()
+current_version = get_version()
 ts = datetime.now().strftime("%Y%m%d_%H%M")
-out_zip = output_dir / f"KYO_QA_Knowledge_Tool_{VERSION}_{ts}.zip"
+out_zip = output_dir / f"KYO_QA_Knowledge_Tool_{current_version}_{ts}.zip"
 
 # Files and folders to include
 include = [
