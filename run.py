@@ -1,12 +1,12 @@
 
-# KYO QA ServiceNow Tool - Python Package Installer v25.0.1
+# KYO QA ServiceNow Tool - Python Package Installer v25.1.0
 import sys, subprocess, importlib.metadata
 
 try:
     from version import get_version
     VERSION = get_version()
 except Exception:
-    VERSION = "v25.0.1"
+    VERSION = "v25.1.0"
 
 # FIXED: Added 'ollama' and 'PySide6' to ensure the AI and GUI components can run.
 REQUIRED_PACKAGES = [

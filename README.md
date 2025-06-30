@@ -1,4 +1,4 @@
-# KYO QA ServiceNow Knowledge Tool v25.0.1
+# KYO QA ServiceNow Knowledge Tool v25.1.0
 
 ## How to Set Up and Run (Modular, Fully Logged)
 
@@ -11,7 +11,7 @@
 
 ### 2. Folder Structure
 
-KYO_QA_ServiceNow_Knowledge_Tool_v25.0.1/\
+KYO_QA_ServiceNow_Knowledge_Tool_v25.1.0/\
 ├── START.bat\
 ├── start_tool.py\
 ├── requirements.txt\
@@ -90,7 +90,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
 ### 3. Setup Steps
 
-1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v25.0.1`).
+1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v25.1.0`).
 2. Install Python 3.11.x or place portable Python in `python-3.11.9`. Optionally, install Tesseract or place in `tesseract` folder.
 3. Run `START.bat` (Windows) or `python start_tool.py`:
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
@@ -99,7 +99,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
    ```bash
 
-   cd KYO_QA_ServiceNow_Knowledge_Tool_v25.0.1
+   cd KYO_QA_ServiceNow_Knowledge_Tool_v25.1.0
 
    rmdir /S /Q venv
    python -m venv venv
@@ -132,12 +132,12 @@ Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-date
 
 ### 6. Versioning
 
-- Current version: **v25.0.1**
+- Current version: **v25.1.0**
 - Updates tracked in `CHANGELOG.md`.
 - Use `update_version.py` to change versions:
 
   ```bash
-  python update_version.py v25.0.1 v25.0.2
+  python update_version.py v25.1.0 v25.1.1
   ```
 
 ### 7. Logging

@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v25.0.1 (2025-06-30)
+## v25.1.0 (2025-06-30)
 - Introduced a basic PySide6 interface including QAApp and Worker classes.
 - Documented Pillow and Ollama in the README for clarity.
 - Enforced end-of-file newlines across the project.

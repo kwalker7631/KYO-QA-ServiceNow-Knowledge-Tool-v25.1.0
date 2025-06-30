@@ -9,9 +9,13 @@ from config import BRAND_COLORS
 import config as config_module 
 
 def generate_regex_from_sample(sample: str) -> str:
-    if not sample or not sample.strip(): return ""
+    """Generate a regex pattern from a text sample."""
+    if not sample or not sample.strip():
+        return ""
+
     escaped = re.escape(sample.strip())
-    return f"\\b{re.sub(r'\\d+', r'\\\\d+', escaped)}\\b"
+    regex_part = re.sub(r"\\d+", r"\\d+", escaped)
+    return fr"\\b{regex_part}\\b"
 
 class ReviewWindow(tk.Toplevel):
     def __init__(self, parent, pattern_name, label, file_info=None):
