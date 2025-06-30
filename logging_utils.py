@@ -6,16 +6,25 @@ from pathlib import Path
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-__all__ = [
-    "setup_logger",
-    "QtWidgetHandler",
-    "log_info",
-    "log_error",
-    "log_warning",
-    "log_exception",
-    "create_success_log",
-    "create_failure_log",
-]
+class QtWidgetHandler(logging.Handler):
+
+    """Send log records to a Qt text widget."""
+
+    def __init__(self, widget, level=logging.NOTSET):
+        super().__init__(level)
+        self.widget = widget
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            if hasattr(self.widget, "append"):
+                self.widget.append(msg)
+            elif hasattr(self.widget, "appendPlainText"):
+                self.widget.appendPlainText(msg)
+            elif hasattr(self.widget, "insertPlainText"):
+                self.widget.insertPlainText(msg + "\n")
+        except Exception:
+            self.handleError(record)
 
 LOG_DIR = Path.cwd() / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -24,19 +33,17 @@ SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
 
 
 class QtWidgetHandler(logging.Handler):
-    """Logging handler that appends formatted records to a QTextEdit."""
+    """Simple handler that appends log messages to a text widget."""
 
-    def __init__(self, widget) -> None:
+    def __init__(self, widget):
         super().__init__()
         self.widget = widget
 
-    def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - GUI
-        try:
-            msg = self.format(record)
-            if hasattr(self.widget, "append"):
-                self.widget.append(msg)
-        except Exception:
-            pass
+    def emit(self, record):  # pragma: no cover - simple UI helper
+        msg = self.format(record)
+        append = getattr(self.widget, "append", None)
+        if callable(append):
+            append(msg)
 
 def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logger:
     formatter = logging.Formatter(
@@ -58,17 +65,21 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logg
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
-        root_logger.info(
-            f"Logging initialized for session. Log file: {SESSION_LOG_FILE}"
-        )
 
+        root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
+
+    if log_widget:
+        if not any(isinstance(h, QtWidgetHandler) and getattr(h, 'text_edit', None) is log_widget for h in root_logger.handlers):
+            gui_handler = QtWidgetHandler(log_widget)
+            gui_handler.setFormatter(formatter)
+            gui_handler.setLevel(level)
+            root_logger.addHandler(gui_handler)
+    
     logger = logging.getLogger(name)
-    logger.setLevel(level)
-    if log_widget and not any(isinstance(h, QtWidgetHandler) for h in logger.handlers):
-        handler = QtWidgetHandler(log_widget)
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
+    if log_widget is not None:
+        widget_handler = QtWidgetHandler(log_widget)
+        widget_handler.setFormatter(formatter)
+        logger.addHandler(widget_handler)
     return logger
 
 def log_info(logger: logging.Logger, message: str) -> None:

@@ -2,26 +2,9 @@
 from __future__ import annotations
 
 import pandas as pd
-
-__all__ = ["ExcelWriter", "NEEDS_REVIEW_FILL", "FAILED_FILL"]
-try:
-    from openpyxl.styles import Alignment, Font, PatternFill
-    from openpyxl.formatting.rule import FormulaRule
-except Exception:  # pragma: no cover - openpyxl may be missing
-    Alignment = object
-
-    class Font:  # type: ignore
-        def __init__(self, *a, **k):
-            pass
-
-    class PatternFill:  # type: ignore
-        def __init__(self, *a, **k):
-            self.start_color = self.end_color = ""
-            self.fill_type = None
-
-    class FormulaRule:  # type: ignore
-        def __init__(self, *a, **k):
-            pass
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.formatting.rule import FormulaRule
+import openpyxl
 import re
 
 from logging_utils import setup_logger, log_info, log_error
@@ -38,6 +21,30 @@ NEEDS_REVIEW_FILL = PatternFill(
 OCR_FILL = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
 FAILED_FILL = PatternFill(start_color="9C0006", end_color="9C0006", fill_type="solid")
 SUCCESS_FILL = PatternFill(fill_type=None)
+
+
+class ExcelWriter:
+    """Lightweight Excel writer used for unit tests."""
+
+    def __init__(self, output_path: str, headers: list[str]):
+        self.output_path = output_path
+        self.headers = headers
+        self.wb = openpyxl.Workbook()
+        self.ws = self.wb.active
+        self.ws.append(headers)
+
+    def add_row(self, data: dict):
+        row = [data.get(h, "") for h in self.headers]
+        self.ws.append(row)
+        status = data.get("processing_status")
+        cell = self.ws.cell(row=self.ws.max_row, column=1)
+        if status == "Needs Review":
+            cell.fill = NEEDS_REVIEW_FILL
+        elif status == "Failed":
+            cell.fill = FAILED_FILL
+
+    def save(self):
+        self.wb.save(self.output_path)
 
 DEFAULT_TEMPLATE_HEADERS = [
     "Active",
@@ -74,6 +81,32 @@ DEFAULT_TEMPLATE_HEADERS = [
     "Change Type",
     "Revision",
 ]
+
+
+class ExcelWriter:
+    """Minimal writer used in tests to verify row coloring."""
+
+    def __init__(self, filepath, headers):
+        self.filepath = filepath
+        self.headers = [h.strip() for h in headers]
+        self.workbook = openpyxl.Workbook()
+        self.sheet = self.workbook.active
+        self.sheet.append(self.headers)
+
+    def add_row(self, data):
+        row = [data.get(h, "") for h in self.headers]
+        self.sheet.append(row)
+        status = data.get("processing_status", "Success")
+        fill = {
+            "Needs Review": NEEDS_REVIEW_FILL,
+            "Failed": FAILED_FILL,
+        }.get(status)
+        if fill:
+            for cell in self.sheet[self.sheet.max_row]:
+                cell.fill = fill
+
+    def save(self):
+        self.workbook.save(self.filepath)
 
 
 def sanitize_for_excel(value):
@@ -181,3 +214,6 @@ def generate_excel(all_results, output_path, template_path):
     except Exception as e:  # pragma: no cover - log and raise
         log_error(logger, f"Excel generation failed: {e}")
         raise ExcelGenerationError(f"Failed to generate Excel file: {e}")
+
+
+

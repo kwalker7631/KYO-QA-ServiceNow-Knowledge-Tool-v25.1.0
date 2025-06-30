@@ -1,11 +1,22 @@
-# KYO QA ServiceNow Tool - Python Package Installer v24.0.6
+
+# KYO QA ServiceNow Tool - Python Package Installer v25.0.1
 import sys, subprocess, importlib.metadata
 
-try: from version import VERSION
-except ImportError: VERSION = "24.0.6"
+try:
+    from version import get_version
+    VERSION = get_version()
+except Exception:
+    VERSION = "v25.0.1"
 
-# FIXED: Added 'ollama' to ensure the AI component can run.
-REQUIRED_PACKAGES = ["pandas", "openpyxl", "PyMuPDF", "pytesseract", "ollama"]
+# FIXED: Added 'ollama' and 'PySide6' to ensure the AI and GUI components can run.
+REQUIRED_PACKAGES = [
+    "pandas",
+    "openpyxl",
+    "PyMuPDF",
+    "pytesseract",
+    "ollama",
+    "PySide6",
+]
 
 def check_and_install_packages():
     print(f"--- Python Package Setup (v{VERSION}) ---")

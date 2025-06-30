@@ -74,13 +74,6 @@ STANDARDIZATION_RULES = {
     "ECOSYS-": "ECOSYS ",
 }
 
+
 # --- EXCEL GENERATION ---
 META_COLUMN_NAME = "Meta"
-
-# Minimal header mapping used by processing utilities
-HEADER_MAPPING = {
-    "short_description": "Short description",
-    "models": "models",
-    "author": "Author",
-    "processing_status": "Processing Status",
-}

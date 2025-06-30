@@ -5,7 +5,10 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import logging
-from logging_utils import setup_logger, QtWidgetHandler
+try:
+    from logging_utils import setup_logger, QtWidgetHandler
+except ImportError:
+    from logging_utils import setup_logger
 
 class DummyTextEdit:
     def __init__(self):
@@ -19,3 +22,11 @@ def test_gui_handler_appends_messages():
     logger.setLevel(logging.INFO)
     logger.info('hello world')
     assert any('hello world' in m for m in widget.messages)
+    root_logger = logging.getLogger()
+    for h in list(root_logger.handlers):
+        if isinstance(h, QtWidgetHandler):
+            root_logger.removeHandler(h)
+
+def test_no_widget_has_no_qt_handler():
+    setup_logger('plain_test')
+    assert not any(isinstance(h, QtWidgetHandler) for h in logging.getLogger().handlers)

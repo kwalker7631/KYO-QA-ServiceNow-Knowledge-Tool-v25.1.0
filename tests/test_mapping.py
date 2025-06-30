@@ -46,3 +46,8 @@ def test_mapping_contains_required_headers():
     assert result[HEADER_MAPPING['processing_status']] == 'Needs Review'
 
 
+def test_mapping_sets_filename_when_subject_missing():
+    result = processing_engine.map_to_servicenow_format({}, 'my.pdf')
+    assert result[HEADER_MAPPING['file_name']] == 'my.pdf'
+
+

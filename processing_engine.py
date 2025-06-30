@@ -2,21 +2,15 @@
 import shutil
 import time
 import json
+import fitz
+import threading
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import PatternFill, Alignment
+import tempfile
 from openpyxl.utils import get_column_letter
-
-__all__ = [
-    "process_folder",
-    "process_zip_archive",
-    "run_processing_job",
-    "clear_review_folder",
-    "process_single_pdf",
-]
-
 from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
@@ -206,9 +200,8 @@ def run_processing_job(job_info: dict, progress_queue: Queue, cancel_event):
                     meta_cell = sheet.cell(row=row_idx, column=meta_col_idx)
                     author_cell = sheet.cell(row=row_idx, column=author_col_idx)
                     status_cell = sheet.cell(row=row_idx, column=status_col_idx)
-                    if meta_cell.value is None or str(meta_cell.value).strip() in ["", "Review Needed"]:
-                        meta_cell.value = data["models"]
-                        updates_made += 1
+                    meta_cell.value = data["models"]
+                    updates_made += 1
                     author_cell.value = data.get("author", "")
                     status_cell.value = f"{data['status']}{' (OCR)' if data['ocr_used'] else ''}"
                     pdfs_found_in_sheet.add(filename)
@@ -267,18 +260,16 @@ def run_processing_job(job_info: dict, progress_queue: Queue, cancel_event):
         progress_queue.put({"type": "log", "tag": "error", "msg": error_message})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
 
+def process_folder(folder_path, kb_filepath, *_, **__):
+    """Legacy wrapper that processes a directory of PDFs."""
+    job = {"excel_path": kb_filepath, "input_path": folder_path}
+    run_processing_job(job, Queue(), threading.Event())
 
-def map_to_servicenow_format(data: dict, filename: str) -> dict:
-    """Create a simplified ServiceNow row from extracted data."""
-    from config import HEADER_MAPPING
 
-    result = {
-        HEADER_MAPPING["short_description"]: data.get("subject", filename),
-        HEADER_MAPPING["models"]: data.get("models", ""),
-        HEADER_MAPPING["author"]: data.get("author", ""),
-        HEADER_MAPPING["processing_status"]: "Needs Review" if data.get("needs_review") else "Pass",
-        "file_name": filename,
-    }
-    if data.get("published_date"):
-        result["Published"] = data["published_date"]
-    return result
+def process_zip_archive(zip_path, kb_filepath, *_, **__):
+    """Legacy wrapper that processes a ZIP of PDFs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(tmpdir)
+        job = {"excel_path": kb_filepath, "input_path": tmpdir}
+        run_processing_job(job, Queue(), threading.Event())
