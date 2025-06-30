@@ -1,6 +1,6 @@
 from pathlib import Path
 
-REQUIRED_PACKAGES = {"PyMuPDF", "Pillow", "python-dateutil", "ollama"}
+REQUIRED_PACKAGES = {"PyMuPDF", "Pillow", "python-dateutil", "ollama", "PySide6"}
 
 def test_new_requirements_present():
     req_file = Path(__file__).resolve().parents[1] / "requirements.txt"
