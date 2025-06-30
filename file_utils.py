@@ -17,7 +17,8 @@ REQUIRED_FOLDERS = [
     "PDF_TXT",
     "PDF_TXT/needs_review",
     "temp"
-    # add more as needed
+
+  # add more as needed
 ]
 
 def ensure_folders(base_folder=None):

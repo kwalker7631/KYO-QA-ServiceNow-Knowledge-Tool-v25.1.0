@@ -118,7 +118,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 4. Click "Start Processing" to:
    - Extract model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`), QA numbers, and metadata.
    - Update blank “Meta” cells in a cloned Excel file.
-    - Save text files for failed or incomplete extractions in `PDF_TXT/needs_review`.
+   - Save text files for failed or incomplete extractions in `PDF_TXT/needs_review`.
  5. Review output in `/output/cloned_<excel>.xlsx` and logs in `/logs/` or `PDF_TXT/needs_review`.
 
 ### 5. Development and Testing
@@ -131,7 +131,17 @@ pytest -q
 
 Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-dateutil`, `colorama`, `Pillow`, and `ollama`. Ensure Tesseract is installed or in `tesseract` folder for OCR tests.
 
-### 6. Versioning
+### 6. Command-Line Usage (Alpha)
+
+You can experiment with a simple CLI by running:
+
+```bash
+python cli_runner.py --folder <PDF_folder> --excel <template.xlsx>
+```
+
+The CLI currently relies on the upcoming `process_folder` and `process_zip_archive` helpers, so expect limited functionality until those routines are finalized.
+
+### 7. Versioning
 
 - Current version: **v25.1.0**
 - Updates tracked in `CHANGELOG.md`.
@@ -141,13 +151,13 @@ Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-date
   python update_version.py v25.1.0 v25.1.1
   ```
 
-### 7. Logging
+### 8. Logging
 
 - Session logs in `/logs/[YYYY-MM-DD_HH-MM-SS]_session.log`.
 - Success/failure logs as `[YYYYMMDD]_SUCCESSlog.md` or `FAILlog.md` in `/logs/`.
- - Text files for documents needing review (e.g., failed model extraction) in `/PDF_TXT/needs_review/*.txt`.
+- Text files for documents needing review (e.g., failed model extraction) in `/PDF_TXT/needs_review/*.txt`.
 
-### 8. Portable Deployment
+### 9. Portable Deployment
 
 For USB deployment:
 
