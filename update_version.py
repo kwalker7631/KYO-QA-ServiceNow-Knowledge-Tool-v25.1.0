@@ -23,7 +23,7 @@ def update_files(new_version):
     """Updates the version number in the specified list of files."""
     print(f"Updating files to version: {new_version}\n")
     
-    # Pattern to find 'v' followed by an old version number, e.g., v24.0.6
+    # Pattern to find 'v' followed by an old version number, e.g., v25.0.1
     # This is flexible and will match different version numbers.
     version_pattern = re.compile(r'(v)\d+\.\d+\.\d+')
 
