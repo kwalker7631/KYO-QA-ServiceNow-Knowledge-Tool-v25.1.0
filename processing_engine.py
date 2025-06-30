@@ -111,10 +111,25 @@ def process_single_pdf(pdf_path: Path, progress_queue: Queue, ignore_cache: bool
             review_txt_path = PDF_TXT_DIR / f"{filename}.txt"
             header = f"--- Original Filename: {filename} ---\n--- QA Number Found: {data.get('full_qa_number', 'None')} ---\n\n"
             file_content_for_review = header + extracted_text
-            with open(review_txt_path, 'w', encoding='utf-8') as f:
-                f.write(file_content_for_review)
-            review_info = {"filename": filename, "reason": "No models found", "txt_path": str(review_txt_path), "pdf_path": str(pdf_path), "text_content": file_content_for_review}
-            progress_queue.put({"type": "review_item", "data": review_info})
+            try:
+                with open(review_txt_path, 'w', encoding='utf-8') as f:
+                    f.write(file_content_for_review)
+            except OSError as e:
+                progress_queue.put({
+                    "type": "log",
+                    "tag": "error",
+                    "msg": f"Failed to write review file for {filename}: {e}"
+                })
+                review_info = None
+            else:
+                review_info = {
+                    "filename": filename,
+                    "reason": "No models found",
+                    "txt_path": str(review_txt_path),
+                    "pdf_path": str(pdf_path),
+                    "text_content": file_content_for_review,
+                }
+                progress_queue.put({"type": "review_item", "data": review_info})
             data["models"] = "Review Needed"
         else:
             final_status = "Pass"
