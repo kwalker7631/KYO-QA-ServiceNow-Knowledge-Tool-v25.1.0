@@ -83,6 +83,32 @@ DEFAULT_TEMPLATE_HEADERS = [
 ]
 
 
+class ExcelWriter:
+    """Minimal writer used in tests to verify row coloring."""
+
+    def __init__(self, filepath, headers):
+        self.filepath = filepath
+        self.headers = [h.strip() for h in headers]
+        self.workbook = openpyxl.Workbook()
+        self.sheet = self.workbook.active
+        self.sheet.append(self.headers)
+
+    def add_row(self, data):
+        row = [data.get(h, "") for h in self.headers]
+        self.sheet.append(row)
+        status = data.get("processing_status", "Success")
+        fill = {
+            "Needs Review": NEEDS_REVIEW_FILL,
+            "Failed": FAILED_FILL,
+        }.get(status)
+        if fill:
+            for cell in self.sheet[self.sheet.max_row]:
+                cell.fill = fill
+
+    def save(self):
+        self.workbook.save(self.filepath)
+
+
 def sanitize_for_excel(value):
     if isinstance(value, str):
         cleaned = ILLEGAL_CHARACTERS_RE.sub("", value)
@@ -170,3 +196,6 @@ def generate_excel(all_results, output_path, template_path):
     except Exception as e:  # pragma: no cover - log and raise
         log_error(logger, f"Excel generation failed: {e}")
         raise ExcelGenerationError(f"Failed to generate Excel file: {e}")
+
+
+

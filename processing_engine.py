@@ -12,7 +12,6 @@ import openpyxl
 from openpyxl.styles import PatternFill, Alignment
 import tempfile
 from openpyxl.utils import get_column_letter
-
 from config import (META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR)
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
@@ -263,4 +262,5 @@ def process_zip_archive(zip_path, kb_filepath, *_, **__):
             zf.extractall(tmpdir)
         job = {"excel_path": kb_filepath, "input_path": tmpdir}
         run_processing_job(job, Queue(), threading.Event())
+
 

@@ -8,6 +8,7 @@ from logging.handlers import RotatingFileHandler
 
 
 class QtWidgetHandler(logging.Handler):
+
     """Send log records to a Qt text widget."""
 
     def __init__(self, widget, level=logging.NOTSET):
@@ -65,6 +66,13 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logg
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
         root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
+
+    if log_widget:
+        if not any(isinstance(h, QtWidgetHandler) and getattr(h, 'text_edit', None) is log_widget for h in root_logger.handlers):
+            gui_handler = QtWidgetHandler(log_widget)
+            gui_handler.setFormatter(formatter)
+            gui_handler.setLevel(level)
+            root_logger.addHandler(gui_handler)
     
     logger = logging.getLogger(name)
     if log_widget is not None:
