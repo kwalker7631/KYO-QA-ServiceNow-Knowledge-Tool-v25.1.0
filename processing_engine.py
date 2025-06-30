@@ -250,7 +250,6 @@ def run_processing_job(job_info: dict, progress_queue: Queue, cancel_event):
         progress_queue.put({"type": "log", "tag": "error", "msg": error_message})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
 
-
 def process_folder(folder_path, kb_filepath, *_, **__):
     """Legacy wrapper that processes a directory of PDFs."""
     job = {"excel_path": kb_filepath, "input_path": folder_path}
@@ -264,3 +263,4 @@ def process_zip_archive(zip_path, kb_filepath, *_, **__):
             zf.extractall(tmpdir)
         job = {"excel_path": kb_filepath, "input_path": tmpdir}
         run_processing_job(job, Queue(), threading.Event())
+
