@@ -2,36 +2,9 @@
 from __future__ import annotations
 
 import pandas as pd
-import types
-import sys
-try:
-    from openpyxl.styles import Alignment, Font, PatternFill
-    from openpyxl.formatting.rule import FormulaRule
-except Exception:  # pragma: no cover - fallback for missing openpyxl
-    class _DummyFill:
-        def __init__(self, start_color=None, end_color=None, fill_type=None):
-            self.start_color = types.SimpleNamespace(rgb=start_color)
-
-    class _DummyAlign:
-        def __init__(self, *a, **k):
-            pass
-
-    class _DummyFont:
-        def __init__(self, *a, **k):
-            pass
-
-    class _DummyRule:
-        def __init__(self, *a, **k):
-            pass
-
-    Alignment = _DummyAlign
-    Font = _DummyFont
-    PatternFill = _DummyFill
-    FormulaRule = _DummyRule
-    openpyxl = sys.modules.get('openpyxl', types.ModuleType('openpyxl'))
-    openpyxl.Workbook = lambda: types.SimpleNamespace(active=types.SimpleNamespace(append=lambda *a, **k: None))
-    openpyxl.load_workbook = lambda *a, **k: openpyxl.Workbook()
-    sys.modules['openpyxl'] = openpyxl
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.formatting.rule import FormulaRule
+import openpyxl
 import re
 
 from logging_utils import setup_logger, log_info, log_error
@@ -48,6 +21,30 @@ NEEDS_REVIEW_FILL = PatternFill(
 OCR_FILL = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
 FAILED_FILL = PatternFill(start_color="9C0006", end_color="9C0006", fill_type="solid")
 SUCCESS_FILL = PatternFill(fill_type=None)
+
+
+class ExcelWriter:
+    """Lightweight Excel writer used for unit tests."""
+
+    def __init__(self, output_path: str, headers: list[str]):
+        self.output_path = output_path
+        self.headers = headers
+        self.wb = openpyxl.Workbook()
+        self.ws = self.wb.active
+        self.ws.append(headers)
+
+    def add_row(self, data: dict):
+        row = [data.get(h, "") for h in self.headers]
+        self.ws.append(row)
+        status = data.get("processing_status")
+        cell = self.ws.cell(row=self.ws.max_row, column=1)
+        if status == "Needs Review":
+            cell.fill = NEEDS_REVIEW_FILL
+        elif status == "Failed":
+            cell.fill = FAILED_FILL
+
+    def save(self):
+        self.wb.save(self.output_path)
 
 DEFAULT_TEMPLATE_HEADERS = [
     "Active",
