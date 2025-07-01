@@ -1,5 +1,9 @@
 # KYO QA ServiceNow Knowledge Tool v25.1.0
 
+## Current Version
+
+v25.1.0
+
 ## How to Set Up and Run (Modular, Fully Logged)
 
 ### 1. Prerequisites
@@ -119,7 +123,13 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
    - Extract model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`), QA numbers, and metadata.
    - Update blank “Meta” cells in a cloned Excel file.
    - Save text files for failed or incomplete extractions in `PDF_TXT/needs_review`.
- 5. Review output in `/output/cloned_<excel>.xlsx` and logs in `/logs/` or `PDF_TXT/needs_review`.
+5. Review output in `/output/cloned_<excel>.xlsx` and logs in `/logs/` or `PDF_TXT/needs_review`.
+
+### Custom Pattern Filtering and Rescan
+
+- Click **Patterns** in the main window to edit regex filters stored in `custom_patterns.py`.
+- Use **Re-run Flagged** to process files from the `PDF_TXT/needs_review` folder again.
+- Both custom and built-in patterns are applied during each run.
 
 ### 5. Development and Testing
 
