@@ -37,3 +37,25 @@ def test_process_folder_invokes_run(tmp_path):
     assert called['info']['input_path'] == tmp_path
 
 
+def test_process_zip_archive_invokes_run(tmp_path):
+    excel = tmp_path / "base.xlsx"
+    excel.touch()
+    pdf = tmp_path / "sample.pdf"
+    pdf.write_text("pdf")
+    zip_path = tmp_path / "docs.zip"
+    import zipfile
+    with zipfile.ZipFile(zip_path, 'w') as zf:
+        zf.write(pdf, pdf.name)
+
+    called = {}
+
+    def dummy_run(job_info, queue, cancel, pause):
+        called['info'] = job_info
+
+    with mock.patch('processing_engine.run_processing_job', dummy_run):
+        processing_engine.process_zip_archive(zip_path, excel)
+
+    assert called['info']['excel_path'] == excel
+
+
+

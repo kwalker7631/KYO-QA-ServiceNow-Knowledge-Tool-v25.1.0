@@ -1,5 +1,12 @@
 # processing_engine.py
-import shutil, time, json, openpyxl, re
+import shutil
+import time
+import json
+import openpyxl
+import re
+import threading  # FIX: required for wrapper helpers
+import zipfile  # FIX: needed for process_zip_archive helper
+import tempfile  # FIX: used to extract zip archives
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
@@ -158,3 +165,27 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event):
     except Exception as e:
         progress_queue.put({"type": "log", "tag": "error", "msg": f"Critical error: {e}"})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
+
+
+def process_folder(folder_path, excel_path, log_cb=print, status_cb=print,
+                   progress_cb=print, finish_cb=print, should_cancel=lambda: False):
+    """Wrapper to run a processing job on a folder of PDFs."""
+    job_info = {"excel_path": excel_path, "input_path": folder_path}
+    queue = Queue()
+    cancel_event = threading.Event()
+    pause_event = threading.Event()
+    run_processing_job(job_info, queue, cancel_event, pause_event)
+    return job_info
+
+
+def process_zip_archive(zip_path, excel_path, log_cb=print, status_cb=print,
+                        progress_cb=print, finish_cb=print, should_cancel=lambda: False):
+    """Wrapper that extracts a zip and processes the contained PDFs."""
+    temp_dir = Path(tempfile.mkdtemp())
+    with zipfile.ZipFile(zip_path, 'r') as zf:
+        zf.extractall(temp_dir)
+    try:
+        return process_folder(temp_dir, excel_path, log_cb, status_cb, progress_cb,
+                              finish_cb, should_cancel)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
