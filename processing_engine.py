@@ -1,12 +1,5 @@
 # processing_engine.py
-import shutil
-import time
-import json
-import openpyxl
-import re
-import threading  # FIX: required for wrapper helpers
-import zipfile  # FIX: needed for process_zip_archive helper
-import tempfile  # FIX: used to extract zip archives
+import shutil, time, json, openpyxl, re
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
@@ -33,8 +26,16 @@ def get_cache_path(pdf_path):
     except FileNotFoundError:
         return CACHE_DIR / f"{pdf_path.stem}_unknown.json"
 
+# --- UPDATED FUNCTION ---
 def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
-    filename, cache_path = pdf_path.name, get_cache_path(pdf_path)
+    # Ensure pdf_path is a Path object for consistency
+    pdf_path = Path(pdf_path)
+    filename = pdf_path.name
+    cache_path = get_cache_path(pdf_path)
+
+    # FIX: Announce which file is being processed for live feedback in the terminal
+    progress_queue.put({"type": "log", "tag": "info", "msg": f"Processing: {filename}"})
+    
     if not ignore_cache and cache_path.exists():
         try:
             with open(cache_path, 'r', encoding='utf-8') as f:
@@ -53,12 +54,16 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
              progress_queue.put({"type": "log", "tag": "warning", "msg": f"Corrupt cache for {filename}. Reprocessing..."})
 
     progress_queue.put({"type": "status", "msg": filename, "led": "Queued"})
-    ocr_required = _is_ocr_needed(pdf_path)
+    
+    # FIX: Pass the absolute string path to the OCR utility to prevent file open errors
+    absolute_pdf_path = str(pdf_path.resolve())
+    
+    ocr_required = _is_ocr_needed(absolute_pdf_path)
     if ocr_required:
         progress_queue.put({"type": "status", "msg": filename, "led": "OCR"})
         progress_queue.put({"type": "increment_counter", "counter": "ocr"})
     
-    extracted_text = extract_text_from_pdf(pdf_path)
+    extracted_text = extract_text_from_pdf(absolute_pdf_path)
     if not extracted_text.strip():
         result = {"filename": filename, "models": "Error: Text Extraction Failed", "author": "", "status": "Fail", "ocr_used": ocr_required, "review_info": None}
     else:
@@ -66,8 +71,7 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
         data = harvest_all_data(extracted_text, filename)
         if data["models"] == "Not Found":
             status = "Needs Review"
-            # --- BUG FIX: Use the file's stem for a cleaner .txt filename ---
-            review_txt_path = PDF_TXT_DIR / f"{Path(filename).stem}.txt"
+            review_txt_path = PDF_TXT_DIR / f"{pdf_path.stem}.txt"
             with open(review_txt_path, 'w', encoding='utf-8') as f:
                 f.write(f"--- Filename: {filename} ---\n\n{extracted_text}")
             review_info = {"filename": filename, "reason": "No models", "txt_path": str(review_txt_path), "pdf_path": str(pdf_path)}
@@ -139,15 +143,16 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event):
         
         progress_queue.put({"type": "status", "msg": "Applying formatting...", "led": "Saving"})
         fills = {
-            "Pass": PatternFill("solid", fgColor="FFC6EFCE"),
-            "Fail": PatternFill("solid", fgColor="FFFFC7CE"),
-            "Needs Review": PatternFill("solid", fgColor="FFFFEB9C"),
-            "OCR": PatternFill("solid", fgColor="FF0A9BCD")
+            "Pass": PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"),
+            "Fail": PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"),
+            "Needs Review": PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"),
+            "OCR": PatternFill(start_color="0A9BCD", end_color="0A9BCD", fill_type="solid")
         }
         
         for row in sheet.iter_rows(min_row=2):
             status_val = str(row[cols[STATUS_COLUMN_NAME]-1].value)
-            fill = next((fills[key] for key in fills if key in status_val), None)
+            fill_key = status_val.replace(" (OCR)", "").strip()
+            fill = fills.get(fill_key)
             if fill:
                 for cell in row:
                     cell.fill = fill
@@ -165,27 +170,3 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event):
     except Exception as e:
         progress_queue.put({"type": "log", "tag": "error", "msg": f"Critical error: {e}"})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
-
-
-def process_folder(folder_path, excel_path, log_cb=print, status_cb=print,
-                   progress_cb=print, finish_cb=print, should_cancel=lambda: False):
-    """Wrapper to run a processing job on a folder of PDFs."""
-    job_info = {"excel_path": excel_path, "input_path": folder_path}
-    queue = Queue()
-    cancel_event = threading.Event()
-    pause_event = threading.Event()
-    run_processing_job(job_info, queue, cancel_event, pause_event)
-    return job_info
-
-
-def process_zip_archive(zip_path, excel_path, log_cb=print, status_cb=print,
-                        progress_cb=print, finish_cb=print, should_cancel=lambda: False):
-    """Wrapper that extracts a zip and processes the contained PDFs."""
-    temp_dir = Path(tempfile.mkdtemp())
-    with zipfile.ZipFile(zip_path, 'r') as zf:
-        zf.extractall(temp_dir)
-    try:
-        return process_folder(temp_dir, excel_path, log_cb, status_cb, progress_cb,
-                              finish_cb, should_cancel)
-    finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)

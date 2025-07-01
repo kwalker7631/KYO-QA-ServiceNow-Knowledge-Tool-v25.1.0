@@ -6,6 +6,7 @@ import threading
 import queue
 import time
 import importlib
+import sys
 
 from config import BRAND_COLORS, ASSETS_DIR
 from processing_engine import run_processing_job
@@ -20,9 +21,24 @@ from gui_components import (
 
 logger = logging_utils.setup_logger("app")
 
+# --- Class to redirect stdout/stderr to the UI ---
+class TextRedirector(object):
+    def __init__(self, widget_queue):
+        self.widget_queue = widget_queue
+
+    def write(self, s):
+        self.widget_queue.put(s)
+
+    def flush(self):
+        pass
+
 class KyoQAToolApp(tk.Tk):
     def __init__(self):
         super().__init__()
+
+        self.terminal_queue = queue.Queue()
+        sys.stdout = TextRedirector(self.terminal_queue)
+        sys.stderr = TextRedirector(self.terminal_queue)
 
         self.count_pass = tk.IntVar(value=0)
         self.count_fail = tk.IntVar(value=0)
@@ -46,8 +62,8 @@ class KyoQAToolApp(tk.Tk):
         self.progress_value = tk.DoubleVar(value=0)
         self.time_remaining_var = tk.StringVar(value="")
         self.led_status_var = tk.StringVar(value="●")
+        self.is_fullscreen = True
 
-        # --- FIX: Load icons for the restored buttons ---
         try:
             self.start_icon = tk.PhotoImage(file=ASSETS_DIR / "start.png")
             self.pause_icon = tk.PhotoImage(file=ASSETS_DIR / "pause.png")
@@ -66,8 +82,21 @@ class KyoQAToolApp(tk.Tk):
         self._create_widgets()
 
         ensure_folders()
+        self.attributes("-fullscreen", self.is_fullscreen)
+        self.bind("<Escape>", self.toggle_fullscreen)
         self.after(100, self.process_response_queue)
+        self.after(100, self.process_terminal_queue)
         self.set_led("Ready")
+        
+        messagebox.showinfo(
+            "Full-Screen Mode",
+            "This application is now in full-screen mode.\n\nPress the ESC key at any time to enter or exit full-screen."
+        )
+
+    def toggle_fullscreen(self, event=None):
+        self.is_fullscreen = not self.is_fullscreen
+        self.attributes("-fullscreen", self.is_fullscreen)
+        return "break"
 
     def _setup_window_styles(self):
         self.title(f"Kyocera QA Knowledge Tool v{VERSION}")
@@ -87,7 +116,6 @@ class KyoQAToolApp(tk.Tk):
         self.rowconfigure(1, weight=1)
 
         self.style.theme_use("clam")
-
         self.style.configure("TFrame", background=BRAND_COLORS["background"])
         self.style.configure("Header.TFrame", background=BRAND_COLORS["frame_background"])
         self.style.configure("TLabel", background=BRAND_COLORS["background"], font=("Segoe UI", 10))
@@ -96,6 +124,7 @@ class KyoQAToolApp(tk.Tk):
         self.style.configure("Blue.Horizontal.TProgressbar", background=BRAND_COLORS["accent_blue"])
         self.style.configure("Treeview", font=("Segoe UI", 9), fieldbackground=BRAND_COLORS["frame_background"])
         self.style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
+        self.style.configure("TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=[10, 5])
 
         self.style.configure("TEntry", fieldbackground=BRAND_COLORS["frame_background"], borderwidth=1, relief="solid")
         self.style.map("TEntry",
@@ -105,22 +134,14 @@ class KyoQAToolApp(tk.Tk):
         )
 
         self.log_text_tags = {
-            "info": ("#00529B", "white"),
-            "warning": ("#9F6000", "#FEEFB3"),
-            "error": ("#D8000C", "#FFD2D2"),
-            "success": ("#4F8A10", "#DFF2BF")
+            "info": ("#00529B", "white"), "warning": ("#9F6000", "#FEEFB3"),
+            "error": ("#D8000C", "#FFD2D2"), "success": ("#4F8A10", "#DFF2BF")
         }
 
         self.style.configure("TButton", font=("Segoe UI", 10), padding=6, relief="raised")
-        self.style.map("TButton",
-            background=[('active', '#e0e0e0'), ('!active', '#f0f0f0')],
-            foreground=[('active', 'black'), ('!active', 'black')]
-        )
+        self.style.map("TButton", background=[('active', '#e0e0e0'), ('!active', '#f0f0f0')], foreground=[('active', 'black'), ('!active', 'black')])
         self.style.configure("Red.TButton", font=("Segoe UI", 12, "bold"), foreground="white")
-        self.style.map("Red.TButton",
-            background=[('active', '#A81F14'), ('!active', BRAND_COLORS["kyocera_red"])],
-            foreground=[('active', 'white'), ('!active', 'white')]
-        )
+        self.style.map("Red.TButton", background=[('active', '#A81F14'), ('!active', BRAND_COLORS["kyocera_red"])], foreground=[('active', 'white'), ('!active', 'white')])
 
         self.style.configure("Status.TFrame", background=BRAND_COLORS["status_default_bg"], relief="sunken", borderwidth=1)
         self.style.configure("Status.TLabel", font=("Segoe UI", 10))
@@ -133,34 +154,49 @@ class KyoQAToolApp(tk.Tk):
 
     def _create_widgets(self):
         create_main_header(self, VERSION, BRAND_COLORS)
-
         main_frame = ttk.Frame(self, padding=20)
         main_frame.grid(row=1, column=0, sticky="nsew")
         main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(2, weight=1)
-
         create_io_section(main_frame, self)
         create_process_controls(main_frame, self)
         create_status_and_log_section(main_frame, self)
-
         self.log_text.tag_configure("timestamp", foreground="grey")
         for tag, (fg, bg) in self.log_text_tags.items():
             self.log_text.tag_configure(f"{tag}_fg", foreground=fg)
             self.log_text.tag_configure(f"{tag}_line", background=bg, selectbackground=BRAND_COLORS["highlight_blue"])
 
+    def process_terminal_queue(self):
+        try:
+            while not self.terminal_queue.empty():
+                s = self.terminal_queue.get_nowait()
+                self.terminal_text.config(state=tk.NORMAL)
+                self.terminal_text.insert(tk.END, s)
+                self.terminal_text.see(tk.END)
+                self.terminal_text.config(state=tk.DISABLED)
+        except queue.Empty:
+            pass
+        finally:
+            self.after(100, self.process_terminal_queue)
+    
+    # --- FIX: Added a print() statement to send logs to the Live Terminal ---
     def log_message(self, message, level="info"):
         timestamp = time.strftime("%H:%M:%S")
-        self.log_text.config(state=tk.NORMAL)
         
+        # This sends the log to the "Status & Logs" tab
+        self.log_text.config(state=tk.NORMAL)
         start_index = self.log_text.index(tk.END)
         self.log_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
         self.log_text.insert(tk.END, f"{message}\n", f"{level}_fg")
         end_index = self.log_text.index(tk.END)
         if level in ["warning", "error", "success"]:
              self.log_text.tag_add(f"{level}_line", start_index, end_index)
-        
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
+
+        # This print() statement sends the same log to the "Live Terminal" tab
+        print(f"[{timestamp}] [{level.upper()}] {message}")
+
 
     def start_processing(self, job=None, is_rerun=False):
         if self.is_processing: return
@@ -358,7 +394,9 @@ class KyoQAToolApp(tk.Tk):
             while not self.response_queue.empty():
                 msg = self.response_queue.get_nowait()
                 mtype = msg.get("type")
-                if mtype == "log": self.log_message(msg.get("msg", ""), msg.get("tag", "info"))
+                if mtype == "log":
+                    # This now calls the updated log_message function
+                    self.log_message(msg.get("msg", ""), msg.get("tag", "info"))
                 elif mtype == "status":
                     self.status_current_file.set(msg.get("msg", ""))
                     if "led" in msg: self.set_led(msg["led"])

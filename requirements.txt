@@ -7,3 +7,4 @@ colorama>=0.4.6
 python-dateutil>=2.9.0
 ollama>=0.1.2
 extract
+opencv-python>=4.9.0

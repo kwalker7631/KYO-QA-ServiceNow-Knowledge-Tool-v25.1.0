@@ -9,7 +9,7 @@ PDF_TXT_DIR = BASE_DIR / "PDF_TXT"
 CACHE_DIR = BASE_DIR / ".cache"
 ASSETS_DIR = BASE_DIR / "assets" # For icons
 
-# --- BRANDING AND UI (UPDATED) ---
+# --- BRANDING AND UI ---
 BRAND_COLORS = {
     "kyocera_red": "#DA291C",
     "kyocera_black": "#231F20",
@@ -20,7 +20,7 @@ BRAND_COLORS = {
     "success_green": "#107C10",
     "warning_orange": "#FFA500",
     "fail_red": "#DA291C",
-    "highlight_blue": "#0078D4", # For focus highlighting
+    "highlight_blue": "#0078D4",
     # Status bar background colors
     "status_default_bg": "#F8F8F8",
     "status_processing_bg": "#DDEEFF",

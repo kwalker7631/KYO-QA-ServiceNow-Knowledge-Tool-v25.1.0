@@ -1,19 +1,19 @@
-# KYO QA ServiceNow OCR Utilities
-from version import VERSION
+# ocr_utils.py
 import fitz  # PyMuPDF
 import os
 from pathlib import Path
 from logging_utils import setup_logger, log_info, log_error, log_warning
+import pytesseract
+from PIL import Image
+import io
+import cv2  # OpenCV for image processing
+import numpy as np
 
 logger = setup_logger("ocr_utils")
 
 def init_tesseract():
     """Initialize Tesseract OCR if available."""
     try:
-        import pytesseract
-        from PIL import Image
-        import io
-        
         portable_path = Path(__file__).parent / "tesseract" / "tesseract.exe"
         if portable_path.exists():
             pytesseract.pytesseract.tesseract_cmd = str(portable_path)
@@ -31,13 +31,12 @@ def init_tesseract():
                 return True
         
         try:
-            # Check if tesseract is in the system's PATH
             output = os.popen("tesseract --version").read()
             if "tesseract" in output.lower():
                 log_info(logger, "Tesseract found in system PATH")
                 return True
         except Exception:
-            pass  # Ignore errors if the command fails
+            pass
             
         log_warning(logger, "Tesseract OCR not found. Image-based OCR will be disabled.")
         return False
@@ -51,23 +50,17 @@ def init_tesseract():
 TESSERACT_AVAILABLE = init_tesseract()
 
 def _is_ocr_needed(pdf_path):
-    """
-    Pre-checks a PDF to see if it's image-based and likely requires OCR.
-    It does this by checking the amount of extractable text.
-    """
+    """Pre-checks a PDF to see if it's image-based and likely requires OCR."""
     try:
         with fitz.open(pdf_path) as doc:
             if not doc.is_pdf or doc.is_encrypted:
                 return False
             
-            # Check the total text length of the document.
-            # If it's very short, it's likely an image-based PDF.
             text_length = sum(len(page.get_text("text")) for page in doc)
-            if text_length < 150:  # This threshold can be adjusted
+            if text_length < 150:
                 return True
     except Exception as e:
         log_warning(logger, f"Could not pre-check PDF {Path(pdf_path).name} for OCR needs: {e}")
-        # If any error occurs, default to assuming OCR might be needed.
         return True
     return False
 
@@ -79,42 +72,50 @@ def extract_text_from_pdf(pdf_path):
         with fitz.open(pdf_path) as doc:
             text = "".join(page.get_text() for page in doc)
             
-        # If text is found and OCR is not explicitly needed, return it.
         if text and len(text.strip()) > 50:
             log_info(logger, f"Extracted text directly from {pdf_path.name}")
             return text
             
-        # If no text was found, or it's very short, attempt OCR if available.
         if TESSERACT_AVAILABLE:
             log_info(logger, f"Attempting OCR on {pdf_path.name}")
             return extract_text_with_ocr(pdf_path)
         else:
             log_warning(logger, f"No text found in {pdf_path.name} and OCR is not available.")
-            return ""  # Return empty string if no text and no OCR
+            return ""
     except Exception as exc:
         log_error(logger, f"Failed to extract text from {pdf_path.name}: {exc}")
         return ""
 
+# --- UPDATED OCR FUNCTION ---
 def extract_text_with_ocr(pdf_path):
-    """Extract text from a PDF using OCR on its rendered images."""
+    """Extract text from a PDF using pre-processing and OCR."""
     if not TESSERACT_AVAILABLE:
         log_warning(logger, "Tesseract OCR not available, cannot perform OCR.")
         return ""
         
+    all_text = []
     try:
-        import pytesseract
-        from PIL import Image
-        import io
-        
-        all_text = []
         with fitz.open(pdf_path) as doc:
             for page_num, page in enumerate(doc):
-                # Render the page at a higher resolution for better OCR accuracy
+                # 1. Render page at a higher DPI for better quality
                 pix = page.get_pixmap(dpi=300)
-                img = Image.open(io.BytesIO(pix.tobytes("png")))
+                img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
                 
-                # Use Tesseract to do OCR on the image
-                page_text = pytesseract.image_to_string(img)
+                # 2. Convert to OpenCV format (from RGB to BGR)
+                img_cv = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
+
+                # 3. Pre-process the image for better OCR accuracy
+                # Convert to grayscale
+                gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+                # Apply adaptive thresholding to get a clean black and white image
+                binary_img = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+                # 4. Use Tesseract to do OCR on the processed image
+                # lang='eng' for English. Add other languages like 'jpn' if needed (e.g., 'eng+jpn')
+                # --psm 6 assumes a single uniform block of text, often good for technical docs.
+                custom_config = r'--oem 3 --psm 6'
+                page_text = pytesseract.image_to_string(binary_img, lang='eng', config=custom_config)
+                
                 all_text.append(page_text)
                 log_info(logger, f"OCR processed page {page_num+1} of {pdf_path.name}")
                 
@@ -124,28 +125,3 @@ def extract_text_with_ocr(pdf_path):
     except Exception as e:
         log_error(logger, f"OCR extraction failed for {pdf_path.name}: {e}")
         return ""
-
-def get_pdf_metadata(pdf_path):
-    """Extract metadata from a PDF file."""
-    try:
-        with fitz.open(pdf_path) as doc:
-            metadata = doc.metadata
-            page_count = len(doc)
-            
-        result = {
-            "title": metadata.get("title", ""),
-            "author": metadata.get("author", ""),
-            "subject": metadata.get("subject", ""),
-            "keywords": metadata.get("keywords", ""),
-            "creator": metadata.get("creator", ""),
-            "producer": metadata.get("producer", ""),
-            "creationDate": metadata.get("creationDate", ""),
-            "modDate": metadata.get("modDate", ""),
-            "page_count": page_count
-        }
-        
-        log_info(logger, f"Extracted metadata from {pdf_path.name}")
-        return result
-    except Exception as e:
-        log_error(logger, f"Failed to extract metadata from {pdf_path.name}: {e}")
-        return {}
