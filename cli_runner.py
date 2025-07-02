@@ -7,7 +7,7 @@ from processing_engine import process_folder, process_zip_archive
 from logging_utils import setup_logger
 from file_utils import ensure_folders
 
-logger = setup_logger("cli")
+logger = setup_logger("cli", to_console=True)
 
 def timestamped_copy(filepath):
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
