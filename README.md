@@ -143,13 +143,15 @@ Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-date
 
 ### 6. Command-Line Usage (Alpha)
 
-You can experiment with a simple CLI by running:
+The command line interface is **experimental**. Until the `process_folder` and `process_zip_archive` helpers are fully implemented, the CLI may not run as expected.
+
+You can try it with:
 
 ```bash
 python cli_runner.py --folder <PDF_folder> --excel <template.xlsx>
 ```
 
-The CLI currently relies on the upcoming `process_folder` and `process_zip_archive` helpers, so expect limited functionality until those routines are finalized.
+For progress updates, check the project issue tracker or documentation.
 
 ### 7. Versioning
 
