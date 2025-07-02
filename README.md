@@ -10,7 +10,7 @@ v25.1.0
 
 - **Python 3.11.x (64-bit):** Download Python 3.11.9 Windows Installer or use a portable version in `python-3.11.9` folder.
 - **Tesseract OCR:** Tesseract Windows Installer (UB Mannheim) or place portable binary in `tesseract` folder.
-- **Dependencies:** Listed in `requirements.txt` (auto-installed via `start_tool.py`). Key packages include `PySide6` for the GUI, `PyMuPDF` for PDF handling, `Pillow` for images, `ollama` for AI features, and `extract` for extra data extraction helpers.
+- **Dependencies:** Listed in `requirements.txt` (auto-installed via `start_tool.py`). Key packages include `PySide6` for the GUI, `PyMuPDF` for PDF handling, and `Pillow` for images.
 - **Install PySide6:** If it doesn't auto-install, run `pip install PySide6` inside the `venv`.
 
 ### 2. Folder Structure
@@ -139,7 +139,7 @@ Run tests with:
 pytest -q
 ```
 
-Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-dateutil`, `colorama`, `Pillow`, and `ollama`. Ensure Tesseract is installed or in `tesseract` folder for OCR tests.
+Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-dateutil`, `colorama`, and `Pillow`. Ensure Tesseract is installed or in `tesseract` folder for OCR tests.
 
 ### 6. Command-Line Usage (Alpha)
 
