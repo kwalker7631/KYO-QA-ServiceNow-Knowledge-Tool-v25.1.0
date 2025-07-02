@@ -88,7 +88,7 @@ def test_extract_text_from_pdf_ocr_failure(monkeypatch, caplog):
 
     result = ocr_utils.extract_text_from_pdf("dummy.pdf")
 
-    assert result == "[NO TEXT EXTRACTED]"
+    assert result == ""
     assert any(
         "OCR extraction failed" in record.message for record in caplog.records
     )
