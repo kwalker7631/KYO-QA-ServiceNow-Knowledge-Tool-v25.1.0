@@ -8,3 +8,11 @@
 [run.py: line 83] – Split statement to comply with style guidelines.
 [start_tool.py: line 110] – Fixed typo in global variable list.
 [test_file_utils.py] – Added unit test for is_file_locked function.
+
+[general] – python -m py_compile reported no syntax errors. All current unit tests pass.
+[file_utils.py: lines 14-22] – is_file_locked may miss admin or network locks. Consider using msvcrt on Windows for exclusive open and catching PermissionError.
+[processing_engine.py: line 140] – openpyxl.load_workbook can raise InvalidFileException when Excel is password protected. Wrap in try/except and notify the user.
+[ocr_utils.py: lines 54-68] – _open_pdf handles passwords but not permission errors. Catch fitz.FileDataError or PermissionError and raise PDFExtractionError with clear message.
+[kyo_qa_tool_app.py: lines 303-309] – open_result catches all exceptions. Add specific handling for FileNotFoundError to show "File not found" dialog.
+[tests/test_file_utils.py] – Only checks unlocked file case. Add a test that locks a file and asserts is_file_locked returns True.
+[misc] – Many .py files lack a trailing newline (e.g., config.py, custom_exceptions.py). Add final newline for style compliance.
