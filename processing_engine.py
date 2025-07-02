@@ -100,6 +100,7 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
             review_info = None
         result = {"filename": filename, **data, "status": status, "ocr_used": ocr_required, "review_info": review_info}
 
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
     with open(cache_path, 'w', encoding='utf-8') as f:
         json.dump(result, f)
     progress_queue.put({"type": "file_complete", "status": result["status"]})
