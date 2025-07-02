@@ -24,6 +24,7 @@ logger = logging_utils.setup_logger("app")
 
 
 class TextRedirector:
+
     """Simple stdout redirector used in testing."""
 
     def __init__(self, queue_obj):
@@ -33,6 +34,7 @@ class TextRedirector:
         self.queue.put(string)
 
     def flush(self):
+
         pass
 
 class KyoQAToolApp(tk.Tk):
@@ -44,7 +46,6 @@ class KyoQAToolApp(tk.Tk):
         self.count_review = tk.IntVar(value=0)
         self.count_ocr = tk.IntVar(value=0)
         self.count_ocr_fail = tk.IntVar(value=0)
-
         self.is_processing = False
         self.is_paused = False
         self.result_file_path = None
