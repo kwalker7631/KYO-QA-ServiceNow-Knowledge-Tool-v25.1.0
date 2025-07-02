@@ -37,15 +37,16 @@ class QtWidgetHandler(logging.Handler):
             self.handleError(record)
 
 
-def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logger:
+def setup_logger(name: str, level=logging.INFO, log_widget=None, to_console: bool = False) -> logging.Logger:
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)-8s] [%(name)-20s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
     )
     
     root_logger = logging.getLogger()
-    if not root_logger.handlers:
-        root_logger.setLevel(level)
+    root_logger.setLevel(level)
+
+    if not any(isinstance(h, RotatingFileHandler) for h in root_logger.handlers):
         file_handler = RotatingFileHandler(
             SESSION_LOG_FILE,
             maxBytes=10 * 1024 * 1024,
@@ -54,11 +55,19 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logg
         )
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
+        root_logger.info(
+            f"Logging initialized for session. Log file: {SESSION_LOG_FILE}"
+        )
+
+    if to_console and not any(
+        isinstance(h, logging.StreamHandler)
+        and not isinstance(h, logging.FileHandler)
+        and not isinstance(h, QtWidgetHandler)
+        for h in root_logger.handlers
+    ):
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
-
-        root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
 
     logger = logging.getLogger(name)
     

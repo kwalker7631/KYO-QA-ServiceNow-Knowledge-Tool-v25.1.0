@@ -166,6 +166,11 @@ The CLI currently relies on the upcoming `process_folder` and `process_zip_archi
 - Session logs in `/logs/[YYYY-MM-DD_HH-MM-SS]_session.log`.
 - Success/failure logs as `[YYYYMMDD]_SUCCESSlog.md` or `FAILlog.md` in `/logs/`.
 - Text files for documents needing review (e.g., failed model extraction) in `/PDF_TXT/needs_review/*.txt`.
+- To also print log messages to the console, call `setup_logger` with `to_console=True`:
+  ```python
+  from logging_utils import setup_logger
+  logger = setup_logger("cli", to_console=True)
+  ```
 
 ### 9. Portable Deployment
 

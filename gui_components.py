@@ -46,6 +46,15 @@ def create_process_controls(parent, app):
     # --- FIX: Restored the missing 'Patterns' and 'Exit' buttons ---
     app.review_btn = ttk.Button(ctrl, text=" Patterns", image=app.patterns_icon, compound="left", command=app.open_pattern_manager)
     app.review_btn.grid(row=2, column=0, sticky="ew", pady=2)
+    app.retry_ocr_btn = ttk.Button(
+        ctrl,
+        text=" Retry OCR",
+        image=app.rerun_icon,
+        compound="left",
+        command=app.retry_failed_ocr,
+        state=tk.DISABLED,
+    )
+    app.retry_ocr_btn.grid(row=2, column=1, sticky="ew", padx=5, pady=2)
     app.exit_btn = ttk.Button(ctrl, text=" Exit", image=app.exit_icon, compound="left", command=app.on_closing)
     app.exit_btn.grid(row=2, column=3, sticky="ew", pady=2)
 
@@ -106,13 +115,3 @@ def create_status_and_log_section(parent, app):
     log_scroll.grid(row=0, column=1, sticky="ns")
     app.log_text.config(yscrollcommand=log_scroll.set)
     
-    terminal_tab = ttk.Frame(notebook, padding=10)
-    notebook.add(terminal_tab, text="Live Terminal")
-    terminal_tab.rowconfigure(0, weight=1)
-    terminal_tab.columnconfigure(0, weight=1)
-    
-    app.terminal_text = tk.Text(terminal_tab, wrap=tk.WORD, state=tk.DISABLED, background="black", foreground="#E0E0E0", font=("Consolas", 10), insertbackground="white")
-    app.terminal_text.grid(row=0, column=0, sticky="nsew")
-    term_scroll = ttk.Scrollbar(terminal_tab, command=app.terminal_text.yview)
-    term_scroll.grid(row=0, column=1, sticky="ns")
-    app.terminal_text.config(yscrollcommand=term_scroll.set)

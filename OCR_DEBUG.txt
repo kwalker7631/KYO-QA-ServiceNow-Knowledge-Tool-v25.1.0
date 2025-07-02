@@ -1,0 +1,17 @@
+# OCR Diagnosis
+- [ocr_utils.py:86] Pre-check warns generically when OCR detection fails -> refine message with file name for easier debugging.
+- [ocr_utils.py:149] Returns empty string on OCR failure -> raise PDFExtractionError or log more detail so user sees why text is blank.
+
+# Logging Improvements
+- [logging_utils.py:56-59] Possible duplicate handlers if `setup_logger` called multiple times -> check and prevent duplicates.
+- [processing_engine.py:21] Remove unused import `FileLockError`.
+- [run_state.py:2] Remove unused `Path` import.
+
+# UI Cleanup
+- Remove the "Live Terminal" tab defined at `gui_components.py` lines 109-118.
+- Drop queue wiring in `kyo_qa_tool_app.py` lines 39-41 and update `process_terminal_queue` (lines 188-199) accordingly.
+
+# Test Plan
+- **Good Images:** Process a clean PDF to verify OCR text is extracted.
+- **Corrupted Images:** Use a damaged PDF/image and confirm a graceful error is logged without crashing.
+- **UI Check:** Confirm the application no longer shows the Live Terminal tab after cleanup.
