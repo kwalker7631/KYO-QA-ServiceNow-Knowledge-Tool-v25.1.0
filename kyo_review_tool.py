@@ -6,6 +6,7 @@ import re
 import importlib
 
 from config import BRAND_COLORS
+from translation_utils import auto_translate_text
 
 #==============================================================
 # --- MODIFICATION: Rewritten to avoid f-string syntax error ---
@@ -41,6 +42,8 @@ class ReviewWindow(tk.Toplevel):
         self.pattern_label = pattern_label
         self.file_info = file_info
         self.custom_patterns_path = Path("custom_patterns.py")
+        self.translation_available = False
+        self.show_translation_var = tk.BooleanVar(value=False)
         
         self.title(f"Manage Custom: {self.pattern_label}")
         self.geometry("1000x700")
@@ -86,12 +89,20 @@ class ReviewWindow(tk.Toplevel):
         ttk.Button(test_save_frame, text="Update List", command=self.update_pattern_in_list).pack(side="left", padx=5)
         
         ttk.Button(manager_frame, text="Save All Patterns", style="Red.TButton", command=self.save_patterns_to_config).grid(row=6, column=0, columnspan=2, pady=10, sticky="ew")
+        ttk.Checkbutton(manager_frame, text="Show English Translation", variable=self.show_translation_var, command=self.toggle_translation).grid(row=7, column=0, columnspan=2, pady=(0,10), sticky="w")
 
         self.pdf_text = tk.Text(text_frame, wrap="word", font=("Consolas", 9), relief="solid", borderwidth=1)
         self.pdf_text.pack(fill="both", expand=True, side="left")
         text_scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=self.pdf_text.yview)
         text_scrollbar.pack(fill="y", side="right")
         self.pdf_text.config(yscrollcommand=text_scrollbar.set)
+
+        self.translation_text = tk.Text(text_frame, wrap="word", font=("Consolas", 9), relief="solid", borderwidth=1)
+        self.translation_text.pack(fill="both", expand=True, side="right")
+        trans_scroll = ttk.Scrollbar(text_frame, orient="vertical", command=self.translation_text.yview)
+        trans_scroll.pack(fill="y", side="right")
+        self.translation_text.config(yscrollcommand=trans_scroll.set)
+        self.translation_text.pack_forget()
         self.pdf_text.tag_configure("highlight", background="yellow", foreground="black")
 
         if self.file_info:
@@ -234,9 +245,26 @@ class ReviewWindow(tk.Toplevel):
                 with open(txt_path, 'r', encoding='utf-8') as f:
                     content = f.read()
                 self.pdf_text.insert("1.0", content)
+                translated = auto_translate_text(content)
+                if translated and translated != content:
+                    self.translation_text.insert("1.0", translated)
+                    self.translation_available = True
+                else:
+                    self.translation_text.insert("1.0", content)
             else:
                 raise ValueError("No file information was provided to load.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load text file:\n{e}", parent=self)
             self.pdf_text.insert("1.0", "Error: Could not load text file for review.")
             self.pdf_text.config(state=tk.DISABLED)
+
+    def toggle_translation(self):
+        if not self.translation_available:
+            messagebox.showinfo("Translation unavailable", "Translation unavailable; displaying original text.", parent=self)
+            self.show_translation_var.set(False)
+            return
+        if self.show_translation_var.get():
+            self.translation_text.pack(fill="both", expand=True, side="right")
+        else:
+            self.translation_text.pack_forget()
+

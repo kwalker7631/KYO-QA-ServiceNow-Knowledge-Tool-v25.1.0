@@ -111,7 +111,9 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event):
             ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             cloned_path = OUTPUT_DIR / f"cloned_{excel_path.stem}_{ts}{excel_path.suffix}"
             if is_file_locked(excel_path):
-                raise FileLockError("Input Excel is locked.")
+                progress_queue.put({"type": "log", "tag": "error", "msg": "Input Excel is locked."})
+                progress_queue.put({"type": "finish", "status": "Error"})
+                return
             shutil.copy(excel_path, cloned_path)
         
         files = [Path(f) for f in input_path] if isinstance(input_path, list) else list(Path(input_path).glob('*.pdf'))

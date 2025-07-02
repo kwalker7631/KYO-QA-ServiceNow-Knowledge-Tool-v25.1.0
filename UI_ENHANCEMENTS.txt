@@ -1,0 +1,34 @@
+First-Run UX
+------------
+[kyo_qa_tool_app.py: line 88] – Introduced run-state tracking via `run_state.py` to display a Welcome dialog on first launch and a Quick Tip on the second.
+    run_count = get_run_count()
+    increment_run_count()
+    self.after(500, lambda rc=run_count: self.show_startup_messages(rc))
+
+Progress Bar
+------------
+[gui_components.py: line 69] – Added percentage label, cancel button, and stage indicator alongside existing progress bar.
+    ttk.Label(prog_frame, textvariable=app.progress_percent_var).grid(...)
+    app.cancel_progress_btn = ttk.Button(...)
+    ttk.Label(status_tab, textvariable=app.stage_var).grid(...)
+
+Errors
+------
+[processing_engine.py: line 110] – File lock check now warns instead of crashing, sending a finish status back to the UI.
+    if is_file_locked(excel_path):
+        progress_queue.put({"type": "log", "tag": "error", "msg": "Input Excel is locked."})
+        progress_queue.put({"type": "finish", "status": "Error"})
+        return
+
+Translation
+-----------
+[kyo_review_tool.py: line 87] – Translation toggle shows English text next to the original when available.
+    self.translation_text = tk.Text(...)
+    ttk.Checkbutton(..., command=self.toggle_translation)
+
+AI Models
+---------
+[translation_utils.py: line 1] – Optional Google Translate integration using `googletrans` when installed.
+    def auto_translate_text(text, target_lang="en") -> str | None:
+        ...
+

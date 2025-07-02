@@ -10,6 +10,7 @@ import sys
 from config import BRAND_COLORS, ASSETS_DIR
 from processing_engine import run_processing_job
 from file_utils import open_file, ensure_folders, cleanup_temp_files
+from run_state import get_run_count, increment_run_count
 from kyo_review_tool import ReviewWindow
 from version import VERSION
 import logging_utils
@@ -59,6 +60,8 @@ class KyoQAToolApp(tk.Tk):
         self.selected_files_list = []
         self.status_current_file = tk.StringVar(value="Ready to process")
         self.progress_value = tk.DoubleVar(value=0)
+        self.progress_percent_var = tk.StringVar(value="0%")
+        self.stage_var = tk.StringVar(value="Ready")
         self.time_remaining_var = tk.StringVar(value="")
         self.led_status_var = tk.StringVar(value="●")
         self.is_fullscreen = True
@@ -86,7 +89,11 @@ class KyoQAToolApp(tk.Tk):
         self.after(100, self.process_response_queue)
         self.after(100, self.process_terminal_queue)
         self.set_led("Ready")
-        
+
+        run_count = get_run_count()
+        increment_run_count()
+        self.after(500, lambda rc=run_count: self.show_startup_messages(rc))
+
         messagebox.showinfo(
             "Full-Screen Mode",
             "This application is now in full-screen mode.\n\nPress the ESC key at any time to enter or exit full-screen."
@@ -96,6 +103,19 @@ class KyoQAToolApp(tk.Tk):
         self.is_fullscreen = not self.is_fullscreen
         self.attributes("-fullscreen", self.is_fullscreen)
         return "break"
+
+    def show_startup_messages(self, run_count: int):
+        if run_count == 0:
+            messagebox.showinfo(
+                "Welcome",
+                "Welcome to the Kyocera QA Knowledge Tool!\n\n" \
+                "Use the START button to begin processing your PDFs."
+            )
+        elif run_count == 1:
+            messagebox.showinfo(
+                "Quick Tip",
+                "Remember: manage custom regex patterns via the Patterns button."
+            )
 
     def _setup_window_styles(self):
         self.title(f"Kyocera QA Knowledge Tool v{VERSION}")
@@ -329,6 +349,7 @@ class KyoQAToolApp(tk.Tk):
         for child in self.status_frame.winfo_children():
             child.configure(style="Status.TLabel")
         self.style.configure("Status.TLabel", background=bg_color)
+        self.stage_var.set(status)
 
     def update_ui_for_start(self):
         self.is_processing = True
@@ -350,6 +371,9 @@ class KyoQAToolApp(tk.Tk):
         self.status_current_file.set("Initializing...")
         self.time_remaining_var.set("Calculating...")
         self.progress_value.set(0)
+        self.progress_percent_var.set("0%")
+        self.stage_var.set("Processing")
+        self.cancel_progress_btn.config(state=tk.NORMAL)
         self.set_led("Processing")
 
     def update_ui_for_finish(self, status):
@@ -367,6 +391,9 @@ class KyoQAToolApp(tk.Tk):
         final_status = "Complete" if status == "Complete" else "Error"
         self.status_current_file.set(f"Job {status}")
         self.time_remaining_var.set("Done!")
+        self.progress_percent_var.set("100%")
+        self.stage_var.set(status)
+        self.cancel_progress_btn.config(state=tk.DISABLED)
         self.set_led(final_status)
         self.progress_value.set(100)
 
@@ -387,6 +414,7 @@ class KyoQAToolApp(tk.Tk):
         if total > 0:
             percent = (current / total) * 100
             self.progress_value.set(percent)
+            self.progress_percent_var.set(f"{int(percent)}%")
             if self.start_time and current > 0:
                 elapsed = time.time() - self.start_time
                 rate = current / elapsed
