@@ -8,8 +8,9 @@ from config import LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
 
 def ensure_folders():
     """Create all necessary application folders on startup."""
-    for folder in [LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR]:
+    for folder in [LOGS_DIR, OUTPUT_DIR, CACHE_DIR]:
         folder.mkdir(parents=True, exist_ok=True)
+    PDF_TXT_DIR.mkdir(parents=True, exist_ok=True)
 
 def is_file_locked(filepath):
     """Check if a file is locked by another process."""

@@ -21,6 +21,18 @@ from gui_components import (
 
 logger = logging_utils.setup_logger("app")
 
+class TextRedirector:
+    """Simple helper to route writes to a queue."""
+
+    def __init__(self, queue_obj: queue.Queue):
+        self.queue = queue_obj
+
+    def write(self, msg: str):
+        self.queue.put(msg)
+
+    def flush(self):
+        pass
+
 class KyoQAToolApp(tk.Tk):
     def __init__(self):
         super().__init__()

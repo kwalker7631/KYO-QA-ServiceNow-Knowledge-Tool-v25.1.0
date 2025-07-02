@@ -36,6 +36,8 @@ def test_process_single_pdf_ocr_failed(tmp_path, monkeypatch):
     pdf = tmp_path / "sample.pdf"
     pdf.write_text("dummy")
     processing_engine.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(processing_engine, "PDF_TXT_DIR", tmp_path / "review")
+    processing_engine.PDF_TXT_DIR.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(processing_engine, "extract_text_from_pdf", lambda p: "")
     monkeypatch.setattr(processing_engine, "_is_ocr_needed", lambda p: True)
     q = queue.Queue()
@@ -43,5 +45,5 @@ def test_process_single_pdf_ocr_failed(tmp_path, monkeypatch):
     msgs = []
     while not q.empty():
         msgs.append(q.get())
-    assert result["status"] == "Fail"
-    assert any(m.get("type") == "ocr_failed" for m in msgs)
+    assert result["status"] == "Needs Review"
+    assert any(m.get("type") == "review_item" for m in msgs)

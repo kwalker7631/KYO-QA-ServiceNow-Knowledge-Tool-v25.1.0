@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from file_utils import is_file_locked
+from file_utils import is_file_locked, ensure_folders
 
 
 def test_is_file_locked(tmp_path: Path):
@@ -23,5 +23,16 @@ def test_is_file_locked_true(tmp_path: Path):
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         assert is_file_locked(locked_file)
         fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def test_ensure_folders_creates_review_subdir(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr('file_utils.LOGS_DIR', tmp_path / 'logs')
+    monkeypatch.setattr('file_utils.OUTPUT_DIR', tmp_path / 'output')
+    monkeypatch.setattr('file_utils.CACHE_DIR', tmp_path / '.cache')
+    review_dir = tmp_path / 'PDF_TXT' / 'needs_review'
+    monkeypatch.setattr('file_utils.PDF_TXT_DIR', review_dir)
+
+    ensure_folders()
+    assert review_dir.exists()
 
 
