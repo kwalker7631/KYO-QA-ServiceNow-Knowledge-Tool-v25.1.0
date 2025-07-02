@@ -46,6 +46,15 @@ def create_process_controls(parent, app):
     # --- FIX: Restored the missing 'Patterns' and 'Exit' buttons ---
     app.review_btn = ttk.Button(ctrl, text=" Patterns", image=app.patterns_icon, compound="left", command=app.open_pattern_manager)
     app.review_btn.grid(row=2, column=0, sticky="ew", pady=2)
+    app.retry_ocr_btn = ttk.Button(
+        ctrl,
+        text=" Retry OCR",
+        image=app.rerun_icon,
+        compound="left",
+        command=app.retry_failed_ocr,
+        state=tk.DISABLED,
+    )
+    app.retry_ocr_btn.grid(row=2, column=1, sticky="ew", padx=5, pady=2)
     app.exit_btn = ttk.Button(ctrl, text=" Exit", image=app.exit_icon, compound="left", command=app.on_closing)
     app.exit_btn.grid(row=2, column=3, sticky="ew", pady=2)
 
