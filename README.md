@@ -141,11 +141,11 @@ pytest -q
 
 Requires `pandas`, `PyMuPDF`, `PySide6`, `openpyxl`, `pytesseract`, `python-dateutil`, `colorama`, `Pillow`, and `ollama`. Ensure Tesseract is installed or in `tesseract` folder for OCR tests.
 
-### 6. Command-Line Usage (Alpha)
+### 6. Command-Line Usage
 
-The command line interface is **experimental**. Until the `process_folder` and `process_zip_archive` helpers are fully implemented, the CLI may not run as expected.
+Use the CLI to process a folder or zip archive of PDFs and update an Excel template.
 
-You can try it with:
+You can run it with:
 
 ```bash
 python cli_runner.py --folder <PDF_folder> --excel <template.xlsx>
