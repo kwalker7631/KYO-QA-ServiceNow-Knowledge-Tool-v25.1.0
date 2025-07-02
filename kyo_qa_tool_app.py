@@ -5,8 +5,9 @@ from pathlib import Path
 import threading
 import queue
 import time
+import json
 
-from config import BRAND_COLORS, ASSETS_DIR
+from config import BRAND_COLORS, ASSETS_DIR, PDF_TXT_DIR, CACHE_DIR
 from processing_engine import run_processing_job
 from file_utils import open_file, ensure_folders, cleanup_temp_files
 from run_state import get_run_count, increment_run_count
@@ -33,6 +34,21 @@ class TextRedirector:
         """Flush is required for file-like objects; it's a no-op here."""
         pass
 
+
+class TextRedirector:
+
+    """Simple stdout redirector used in testing."""
+
+    def __init__(self, queue_obj):
+        self.queue = queue_obj
+
+    def write(self, string):
+        self.queue.put(string)
+
+    def flush(self):
+
+        pass
+
 class KyoQAToolApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -42,7 +58,6 @@ class KyoQAToolApp(tk.Tk):
         self.count_review = tk.IntVar(value=0)
         self.count_ocr = tk.IntVar(value=0)
         self.count_ocr_fail = tk.IntVar(value=0)
-
         self.is_processing = False
         self.is_paused = False
         self.result_file_path = None
@@ -232,15 +247,82 @@ class KyoQAToolApp(tk.Tk):
         threading.Thread(target=run_processing_job, args=(job, self.response_queue, self.cancel_event, self.pause_event), daemon=True).start()
 
     def rerun_flagged_job(self):
-        files_to_rerun = [item["pdf_path"] for item in self.reviewable_files.values() if Path(item["pdf_path"]).exists()]
+        files_to_rerun = [
+            item["pdf_path"]
+            for item in self.reviewable_files.values()
+            if Path(item["pdf_path"]).exists()
+        ]
+
+        if not files_to_rerun:
+            files_to_rerun = self._collect_review_pdfs()
+
         if not files_to_rerun:
             messagebox.showwarning("No Files", "No files are currently flagged for re-run.")
             return
+
         if not self.result_file_path:
-            messagebox.showerror("Error", "Previous result file not found. Cannot re-run.")
+            messagebox.showerror(
+                "Error", "Previous result file not found. Cannot re-run."
+            )
             return
-        self.log_message(f"Re-running {len(files_to_rerun)} flagged files...", "info")
-        self.start_processing(job={"excel_path": self.result_file_path, "input_path": files_to_rerun}, is_rerun=True)
+
+        self.log_message(
+            f"Re-running {len(files_to_rerun)} flagged files...", "info"
+        )
+        self.start_processing(
+            job={"excel_path": self.result_file_path, "input_path": files_to_rerun},
+            is_rerun=True,
+        )
+
+    def _resolve_pdf_path(self, filename: str) -> str | None:
+        candidate = Path(filename)
+        if candidate.exists():
+            return str(candidate)
+
+        input_path = self.last_run_info.get("input_path")
+        if isinstance(input_path, list):
+            for path in input_path:
+                if Path(path).name == filename:
+                    return str(path)
+        elif input_path:
+            candidate = Path(input_path) / filename
+            if candidate.exists():
+                return str(candidate)
+
+        return None
+
+    def _collect_review_pdfs(self) -> list[str]:
+        paths: list[str] = []
+        for txt_file in PDF_TXT_DIR.glob("*.txt"):
+            pdf_path = None
+            for cache in CACHE_DIR.glob(f"{txt_file.stem}_*.json"):
+                try:
+                    with open(cache, "r", encoding="utf-8") as fh:
+                        data = json.load(fh)
+                    pdf_path = data.get("pdf_path")
+                    if pdf_path:
+                        break
+                except Exception:
+                    continue
+
+            if not pdf_path:
+                try:
+                    with open(txt_file, "r", encoding="utf-8") as fh:
+                        for _ in range(3):
+                            line = fh.readline()
+                            if not line:
+                                break
+                            if line.lower().startswith(("file:", "pdf path:")):
+                                name = line.split(":", 1)[1].strip()
+                                pdf_path = self._resolve_pdf_path(name)
+                                break
+                except Exception:
+                    pass
+
+            if pdf_path and Path(pdf_path).exists():
+                paths.append(pdf_path)
+
+        return paths
 
     def retry_failed_ocr(self):
         ocr_fails = {k: v for k, v in self.reviewable_files.items() if v.get("status") == "OCR Fail"}
