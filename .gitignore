@@ -192,3 +192,12 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+# Local artifacts
+*.bak
+New Text Document.txt
+error_log.txt
+startup_log.txt
+PDF.txt
+OCR_DEBUG.txt
+*_log.txt
+*DEBUG.txt
