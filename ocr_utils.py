@@ -103,7 +103,8 @@ def extract_text_from_pdf(pdf_path):
         if TESSERACT_AVAILABLE:
             log_info(logger, f"Attempting OCR on {pdf_path.name}")
             ocr_text = extract_text_with_ocr(pdf_path)
-            return ocr_text if ocr_text.strip() else "[NO TEXT EXTRACTED]"
+            # Return empty string if OCR fails to extract text
+            return ocr_text if ocr_text.strip() else ""
         
         log_warning(logger, f"No text found in {pdf_path.name} and OCR is not available.")
         raise PDFExtractionError("No text could be extracted and OCR is unavailable.")

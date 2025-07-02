@@ -24,20 +24,7 @@ logger = logging_utils.setup_logger("app")
 
 # Class to redirect stdout/stderr to a queue for UI display
 class TextRedirector:
-    def __init__(self, widget_queue):
-        self.widget_queue = widget_queue
-
-    def write(self, s):
-        self.widget_queue.put(s)
-
-    def flush(self):
-        """Flush is required for file-like objects; it's a no-op here."""
-        pass
-
-
-class TextRedirector:
-
-    """Simple stdout redirector used in testing."""
+    """Redirect stdout/stderr messages to a queue."""
 
     def __init__(self, queue_obj):
         self.queue = queue_obj
@@ -46,7 +33,7 @@ class TextRedirector:
         self.queue.put(string)
 
     def flush(self):
-
+        """Required for file-like interfaces; no action needed."""
         pass
 
 class KyoQAToolApp(tk.Tk):
