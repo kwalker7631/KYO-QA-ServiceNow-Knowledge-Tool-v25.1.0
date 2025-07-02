@@ -46,6 +46,7 @@ class KyoQAToolApp(tk.Tk):
         self.is_paused = False
         self.result_file_path = None
         self.reviewable_files = []
+        self.ocr_failed_files = []
         self.start_time = None
         self.last_run_info = {}
         self.response_queue = queue.Queue()
@@ -230,6 +231,45 @@ class KyoQAToolApp(tk.Tk):
         self.log_message(f"Re-running {len(files)} flagged files...", "info")
         self.start_processing(job={"excel_path": self.result_file_path, "input_path": files}, is_rerun=True)
 
+    def _resolve_failed_file(self, filename: str):
+        """Return full path for a failed OCR file."""
+        folder = self.selected_folder.get()
+        if folder:
+            path = Path(folder) / filename
+            if path.exists():
+                return str(path)
+        for f in self.selected_files_list:
+            if Path(f).name == filename:
+                return f
+        return None
+
+    def retry_failed_ocr(self):
+        if not self.ocr_failed_files:
+            messagebox.showinfo("No OCR Failures", "There are no OCR failures to retry.")
+            self.retry_ocr_btn.config(state=tk.DISABLED)
+            return
+        filename = self.ocr_failed_files.pop(0)
+        file_path = self._resolve_failed_file(filename)
+        if not file_path:
+            messagebox.showerror("File Not Found", f"Could not locate {filename}.")
+            return
+        self.log_message(f"Retrying OCR for {filename}", "info")
+        q = queue.Queue()
+        result = process_single_pdf(file_path, q, ignore_cache=True)
+        while not q.empty():
+            msg = q.get()
+            if msg.get("type") == "log":
+                self.log_message(msg.get("msg", ""), msg.get("tag", "info"))
+        if result and result.get("status") != "Fail":
+            messagebox.showinfo("Success", f"OCR succeeded for {filename}.")
+            self.log_message(f"OCR retry succeeded for {filename}", "success")
+        else:
+            messagebox.showerror("Retry Failed", f"OCR failed again for {filename}.")
+            self.log_message(f"OCR retry failed for {filename}", "error")
+            self.ocr_failed_files.append(filename)
+        if not self.ocr_failed_files:
+            self.retry_ocr_btn.config(state=tk.DISABLED)
+
     def browse_excel(self):
         path = filedialog.askopenfilename(title="Select Excel Template", filetypes=[("Excel Files", "*.xlsx *.xlsm"), ("All Files", "*.*")])
         if path:
@@ -344,6 +384,7 @@ class KyoQAToolApp(tk.Tk):
             var.set(0)
         self.reviewable_files.clear()
         self.review_tree.delete(*self.review_tree.get_children())
+        self.ocr_failed_files.clear()
         self.process_btn.config(state=tk.DISABLED)
         self.pause_btn.config(state=tk.NORMAL, text=" Pause")
         self.stop_btn.config(state=tk.NORMAL)
@@ -351,6 +392,7 @@ class KyoQAToolApp(tk.Tk):
         self.open_result_btn.config(state=tk.DISABLED)
         self.exit_btn.config(state=tk.DISABLED)
         self.rerun_btn.config(state=tk.DISABLED)
+        self.retry_ocr_btn.config(state=tk.DISABLED)
         self.review_file_btn.config(state=tk.DISABLED)
         self.status_current_file.set("Initializing...")
         self.time_remaining_var.set("Calculating...")
@@ -372,6 +414,8 @@ class KyoQAToolApp(tk.Tk):
             self.open_result_btn.config(state=tk.NORMAL)
         if self.reviewable_files:
             self.rerun_btn.config(state=tk.NORMAL)
+        if self.ocr_failed_files:
+            self.retry_ocr_btn.config(state=tk.NORMAL)
         final_status = "Complete" if status == "Complete" else "Error"
         self.status_current_file.set(f"Job {status}")
         self.time_remaining_var.set("Done!")
@@ -434,6 +478,12 @@ class KyoQAToolApp(tk.Tk):
                     data = msg.get("data", {})
                     self.reviewable_files.append(data)
                     self.review_tree.insert('', 'end', values=(data.get('filename', 'Unknown'),))
+                elif mtype == "ocr_failed":
+                    fname = msg.get("file")
+                    if fname:
+                        self.ocr_failed_files.append(fname)
+                        self.retry_ocr_btn.config(state=tk.NORMAL)
+                        self.log_message(f"OCR failed for {fname}.", "error")
                 elif mtype == "result_path":
                     self.result_file_path = msg.get("path")
                 elif mtype == "finish":
