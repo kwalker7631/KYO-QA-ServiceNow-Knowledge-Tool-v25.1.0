@@ -7,3 +7,15 @@ def test_auto_translate_no_lib(monkeypatch):
     text = 'hola'
     assert auto_translate_text(text) == text
 
+
+def test_auto_translate_with_lib(monkeypatch):
+    class DummyTranslator:
+        def detect(self, text):
+            return type('D', (), {'lang': 'es'})()
+
+        def translate(self, text, dest='en'):
+            return type('R', (), {'text': 'hello'})()
+
+    monkeypatch.setattr(translation_utils, '_get_translator', lambda: DummyTranslator())
+    assert auto_translate_text('hola') == 'hello'
+
