@@ -86,8 +86,8 @@ def log_info(logger: logging.Logger, message: str) -> None:
     logger.info(message)
 
 
-def log_error(logger: logging.Logger, message: str) -> None:
-    logger.error(message)
+def log_error(logger: logging.Logger, message: str, **kwargs) -> None:
+    logger.error(message, **kwargs)
 
 
 def log_warning(logger: logging.Logger, message: str) -> None:
