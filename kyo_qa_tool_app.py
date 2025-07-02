@@ -5,7 +5,6 @@ from pathlib import Path
 import threading
 import queue
 import time
-import sys
 
 from config import BRAND_COLORS, ASSETS_DIR
 from processing_engine import run_processing_job
@@ -36,9 +35,6 @@ class KyoQAToolApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.terminal_queue = queue.Queue()
-        sys.stdout = TextRedirector(self.terminal_queue)
-        sys.stderr = TextRedirector(self.terminal_queue)
 
         self.count_pass = tk.IntVar(value=0)
         self.count_fail = tk.IntVar(value=0)
@@ -87,7 +83,6 @@ class KyoQAToolApp(tk.Tk):
         self.attributes("-fullscreen", self.is_fullscreen)
         self.bind("<Escape>", self.toggle_fullscreen)
         self.after(100, self.process_response_queue)
-        self.after(100, self.process_terminal_queue)
         self.set_led("Ready")
 
         run_count = get_run_count()
@@ -185,20 +180,7 @@ class KyoQAToolApp(tk.Tk):
             self.log_text.tag_configure(f"{tag}_fg", foreground=fg)
             self.log_text.tag_configure(f"{tag}_line", background=bg, selectbackground=BRAND_COLORS["highlight_blue"])
 
-    def process_terminal_queue(self):
-        try:
-            while not self.terminal_queue.empty():
-                s = self.terminal_queue.get_nowait()
-                self.terminal_text.config(state=tk.NORMAL)
-                self.terminal_text.insert(tk.END, s)
-                self.terminal_text.see(tk.END)
-                self.terminal_text.config(state=tk.DISABLED)
-        except queue.Empty:
-            pass
-        finally:
-            self.after(100, self.process_terminal_queue)
-    
-    # --- FIX: Added a print() statement to send logs to the Live Terminal ---
+    # --- Print log messages to the console for debugging purposes ---
     def log_message(self, message, level="info"):
         timestamp = time.strftime("%H:%M:%S")
         
@@ -213,7 +195,7 @@ class KyoQAToolApp(tk.Tk):
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
 
-        # This print() statement sends the same log to the "Live Terminal" tab
+        # Also print to the console so logs are visible when run from a terminal
         print(f"[{timestamp}] [{level.upper()}] {message}")
 
 
