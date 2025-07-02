@@ -3,6 +3,7 @@ import re
 import importlib
 from config import (
     MODEL_PATTERNS as DEFAULT_MODEL_PATTERNS,
+    QA_NUMBER_PATTERNS as DEFAULT_QA_PATTERNS,
     EXCLUSION_PATTERNS,
     UNWANTED_AUTHORS,
     STANDARDIZATION_RULES,
@@ -40,8 +41,7 @@ def harvest_models(text: str, filename: str) -> list:
                 #==============================================================
                 # --- BUG FIX: Changed to use the correct function name ---
                 #==============================================================
-                if not is_excluded(match):
-                    models.add(clean_model_string(match))
+                if not is_excluded(match): models.add(clean_model_string(match))
                 #==============================================================
                 # --- END OF BUG FIX ---
                 #==============================================================

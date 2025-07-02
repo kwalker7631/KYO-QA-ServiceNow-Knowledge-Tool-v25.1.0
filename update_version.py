@@ -1,11 +1,13 @@
 # update_version.py
 import re
 from pathlib import Path
+from datetime import datetime
+import sys
 
 # --- Configuration ---
 # Add any new files that contain the version number to this list.
 FILES_TO_UPDATE = [
-    "run.py",
+    "start_tool.py",
     "README.md",
     "CHANGELOG.md",
     # kyo_qa_tool_app.py now imports directly from version.py, so it doesn't need to be here.

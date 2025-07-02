@@ -1,5 +1,6 @@
 # CLI Runner for KYO QA Knowledge Tool
 import argparse
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from processing_engine import process_folder, process_zip_archive
 from logging_utils import setup_logger
 from file_utils import ensure_folders
 
-logger = setup_logger("cli", to_console=True)
+logger = setup_logger("cli")
 
 def timestamped_copy(filepath):
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")

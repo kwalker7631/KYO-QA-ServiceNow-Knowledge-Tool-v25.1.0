@@ -32,6 +32,7 @@ include = [
     "README.md",
     "requirements.txt",
     "Sample_Set",
+    "extract",
     "tests",
 ]
 

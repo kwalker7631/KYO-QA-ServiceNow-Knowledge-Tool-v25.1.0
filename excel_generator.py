@@ -4,6 +4,7 @@ from __future__ import annotations
 import pandas as pd
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.formatting.rule import FormulaRule
+import openpyxl
 import re
 
 from logging_utils import setup_logger, log_info, log_error

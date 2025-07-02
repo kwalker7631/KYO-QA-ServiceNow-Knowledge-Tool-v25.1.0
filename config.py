@@ -5,7 +5,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR / "output"
 LOGS_DIR = BASE_DIR / "logs"
-PDF_TXT_DIR = BASE_DIR / "PDF_TXT" / "needs_review"
+PDF_TXT_DIR = BASE_DIR / "PDF_TXT"
 CACHE_DIR = BASE_DIR / ".cache"
 ASSETS_DIR = BASE_DIR / "assets" # For icons
 
