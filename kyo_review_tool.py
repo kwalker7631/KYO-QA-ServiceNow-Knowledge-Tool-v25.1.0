@@ -1,12 +1,11 @@
 # kyo_review_tool.py
 import tkinter as tk
-from tkinter import messagebox, ttk, simpledialog
+from tkinter import messagebox, ttk
 from pathlib import Path
 import re
 import importlib
 
 from config import BRAND_COLORS
-import config as config_module 
 
 #==============================================================
 # --- MODIFICATION: Rewritten to avoid f-string syntax error ---
@@ -189,7 +188,8 @@ class ReviewWindow(tk.Toplevel):
 
     def remove_pattern(self):
         selection_indices = self.pattern_listbox.curselection()
-        if not selection_indices: return
+        if not selection_indices:
+            return
         if messagebox.askyesno("Confirm Delete", "Are you sure you want to remove the selected pattern?"):
             self.pattern_listbox.delete(selection_indices[0])
             self.on_pattern_select(None)
