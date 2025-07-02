@@ -1,7 +1,8 @@
 import queue
-from pathlib import Path
 import sys
 import types
+
+# ruff: noqa: E402
 
 # Stub dependencies not available in the test environment
 fake_ocr_utils = types.ModuleType("ocr_utils")
@@ -29,20 +30,20 @@ fake_openpyxl.styles = styles_mod
 fake_openpyxl.utils = utils_mod
 sys.modules["openpyxl"] = fake_openpyxl
 
-import processing_engine
+import processing_engine  # noqa: E402
 
 
 def test_process_single_pdf_ocr_failed(tmp_path, monkeypatch):
     pdf = tmp_path / "sample.pdf"
     pdf.write_text("dummy")
+    processing_engine.CACHE_DIR = tmp_path / ".cache"
     processing_engine.CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(processing_engine, "PDF_TXT_DIR", tmp_path / "review")
+    processing_engine.PDF_TXT_DIR = tmp_path / "PDF_TXT"
     processing_engine.PDF_TXT_DIR.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(processing_engine, "extract_text_from_pdf", lambda p: "")
     monkeypatch.setattr(processing_engine, "_is_ocr_needed", lambda p: True)
     q = queue.Queue()
     result = processing_engine.process_single_pdf(pdf, q)
-    msgs = []
     while not q.empty():
         msgs.append(q.get())
     assert result["status"] == "Needs Review"
