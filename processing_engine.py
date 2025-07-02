@@ -82,7 +82,8 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
 
         if ocr_required and not extracted_text.strip():
             progress_queue.put({"type": "ocr_failed"})
-            status = "Fail"
+            # Mark for review if OCR produced no output
+            status = "Needs Review"
             reason = "No text extracted via OCR"
             data = {"models": "Not Found", "author": ""}
         else:
