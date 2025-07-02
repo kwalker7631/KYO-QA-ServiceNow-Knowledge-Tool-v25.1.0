@@ -22,6 +22,18 @@ from gui_components import (
 
 logger = logging_utils.setup_logger("app")
 
+# Class to redirect stdout/stderr to a queue for UI display
+class TextRedirector:
+    def __init__(self, widget_queue):
+        self.widget_queue = widget_queue
+
+    def write(self, s):
+        self.widget_queue.put(s)
+
+    def flush(self):
+        """Flush is required for file-like objects; it's a no-op here."""
+        pass
+
 
 class TextRedirector:
 
@@ -498,8 +510,7 @@ class KyoQAToolApp(tk.Tk):
         if not selection:
             messagebox.showwarning("No Selection", "Please select a file to review.")
             return
-        item_id = selection[0]
-        review_info = self.reviewable_files.get(item_id)
+        review_info = self.reviewable_files.get(selection[0])
         if review_info:
             ReviewWindow(self, "MODEL_PATTERNS", "Model Patterns", review_info)
         else:

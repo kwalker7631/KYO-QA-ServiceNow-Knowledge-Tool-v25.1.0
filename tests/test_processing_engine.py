@@ -2,6 +2,8 @@ import queue
 import sys
 import types
 
+# ruff: noqa: E402
+
 # Stub dependencies not available in the test environment
 fake_ocr_utils = types.ModuleType("ocr_utils")
 fake_ocr_utils.extract_text_from_pdf = lambda p: ""
@@ -42,7 +44,6 @@ def test_process_single_pdf_ocr_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(processing_engine, "_is_ocr_needed", lambda p: True)
     q = queue.Queue()
     result = processing_engine.process_single_pdf(pdf, q)
-    msgs = []
     while not q.empty():
         msgs.append(q.get())
     assert result["status"] == "Needs Review"
