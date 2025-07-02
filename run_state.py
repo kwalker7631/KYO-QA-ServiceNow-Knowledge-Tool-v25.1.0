@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from config import CACHE_DIR
 
 STATE_FILE = CACHE_DIR / 'run_state.json'
