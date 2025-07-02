@@ -1,6 +1,9 @@
 import queue
 import sys
 import types
+import zipfile
+from pathlib import Path
+import pytest
 
 # ruff: noqa: E402
 
@@ -49,3 +52,88 @@ def test_process_single_pdf_ocr_failed(tmp_path, monkeypatch):
         msgs.append(q.get())
     assert result["status"] == "Needs Review"
     assert any(m.get("type") == "review_item" for m in msgs)
+
+
+def test_process_folder_invalid_path():
+    with pytest.raises(FileNotFoundError):
+        processing_engine.process_folder(
+            "does/not/exist",
+            "base.xlsx",
+            None,
+            None,
+            None,
+            None,
+            lambda: False,
+        )
+
+
+def test_process_folder_calls_execute_job(monkeypatch, tmp_path):
+    called = {}
+
+    def fake_execute(job, *a):
+        called.update(job)
+
+    monkeypatch.setattr(processing_engine, "_execute_job", fake_execute)
+    folder = tmp_path / "docs"
+    folder.mkdir()
+    excel = tmp_path / "base.xlsx"
+    excel.write_text("x")
+
+    processing_engine.process_folder(
+        folder,
+        excel,
+        None,
+        None,
+        None,
+        None,
+        lambda: False,
+    )
+
+    assert called["input_path"] == folder
+    assert called["excel_path"] == excel
+
+
+def test_process_zip_archive_bad_zip(tmp_path):
+    bad_zip = tmp_path / "bad.zip"
+    bad_zip.write_text("not a zip")
+    with pytest.raises(zipfile.BadZipFile):
+        processing_engine.process_zip_archive(
+            bad_zip,
+            "base.xlsx",
+            None,
+            None,
+            None,
+            None,
+            lambda: False,
+        )
+
+
+def test_process_zip_archive_calls_process_folder(monkeypatch, tmp_path):
+    pdf = tmp_path / "file.pdf"
+    pdf.write_text("x")
+    zip_path = tmp_path / "docs.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.write(pdf, pdf.name)
+
+    called = {}
+
+    def fake_process_folder(path, excel, *a):
+        called["folder"] = Path(path)
+        called["excel"] = excel
+
+    monkeypatch.setattr(processing_engine, "process_folder", fake_process_folder)
+    excel = tmp_path / "base.xlsx"
+    excel.write_text("x")
+
+    processing_engine.process_zip_archive(
+        zip_path,
+        excel,
+        None,
+        None,
+        None,
+        None,
+        lambda: False,
+    )
+
+    assert isinstance(called["folder"], Path)
+    assert called["excel"] == excel

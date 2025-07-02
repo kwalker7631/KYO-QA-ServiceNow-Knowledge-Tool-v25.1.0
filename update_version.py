@@ -5,7 +5,7 @@ from pathlib import Path
 # --- Configuration ---
 # Add any new files that contain the version number to this list.
 FILES_TO_UPDATE = [
-    "start_tool.py",
+    "run.py",
     "README.md",
     "CHANGELOG.md",
     # kyo_qa_tool_app.py now imports directly from version.py, so it doesn't need to be here.

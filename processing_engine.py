@@ -295,15 +295,65 @@ def _execute_job(job, log_callback, status_callback, header_callback, progress_c
     _dispatch_messages(q, log_callback, status_callback, header_callback, progress_callback, finish_callback)
 
 
-def process_folder(folder_path, excel_path, log_callback, status_callback, header_callback, progress_callback, cancel_check):
-    """Process all PDFs in a folder using run_processing_job."""
+def process_folder(
+    folder_path,
+    excel_path,
+    log_callback,
+    status_callback,
+    header_callback,
+    progress_callback,
+    cancel_check,
+):
+    """Process all PDFs in a folder using ``run_processing_job``.
+
+    Parameters are callbacks for logging/progress updates. ``cancel_check``
+    should be a callable returning ``True`` if processing should stop.
+    """
+
+    path = Path(folder_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Folder not found: {folder_path}")
+
     job = {"excel_path": excel_path, "input_path": folder_path}
-    _execute_job(job, log_callback, status_callback, header_callback, progress_callback, None, cancel_check)
+    _execute_job(
+        job,
+        log_callback,
+        status_callback,
+        header_callback,
+        progress_callback,
+        None,
+        cancel_check,
+    )
 
 
-def process_zip_archive(zip_path, excel_path, log_callback, status_callback, header_callback, progress_callback, cancel_check):
+def process_zip_archive(
+    zip_path,
+    excel_path,
+    log_callback,
+    status_callback,
+    header_callback,
+    progress_callback,
+    cancel_check,
+):
     """Extract a zip of PDFs and process the contents."""
+
+    zip_file = Path(zip_path)
+    if not zip_file.exists():
+        raise FileNotFoundError(f"Zip archive not found: {zip_path}")
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            zf.extractall(tmpdir)
-        process_folder(tmpdir, excel_path, log_callback, status_callback, header_callback, progress_callback, cancel_check)
+        try:
+            with zipfile.ZipFile(zip_file, "r") as zf:
+                zf.extractall(tmpdir)
+        except zipfile.BadZipFile as exc:
+            raise zipfile.BadZipFile(f"Invalid zip file: {zip_path}") from exc
+
+        process_folder(
+            tmpdir,
+            excel_path,
+            log_callback,
+            status_callback,
+            header_callback,
+            progress_callback,
+            cancel_check,
+        )
