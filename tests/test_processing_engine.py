@@ -35,6 +35,7 @@ import processing_engine
 def test_process_single_pdf_ocr_failed(tmp_path, monkeypatch):
     pdf = tmp_path / "sample.pdf"
     pdf.write_text("dummy")
+    processing_engine.CACHE_DIR.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(processing_engine, "extract_text_from_pdf", lambda p: "")
     monkeypatch.setattr(processing_engine, "_is_ocr_needed", lambda p: True)
     q = queue.Queue()
