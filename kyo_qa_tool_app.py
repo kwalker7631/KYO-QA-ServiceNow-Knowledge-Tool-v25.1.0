@@ -5,7 +5,6 @@ from pathlib import Path
 import threading
 import queue
 import time
-import importlib
 import sys
 
 from config import BRAND_COLORS, ASSETS_DIR
@@ -107,7 +106,7 @@ class KyoQAToolApp(tk.Tk):
             icon_path = Path(__file__).parent / "icon.ico"
             if icon_path.exists():
                 self.iconbitmap(icon_path)
-        except:
+        except Exception:
             pass
 
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -199,7 +198,8 @@ class KyoQAToolApp(tk.Tk):
 
 
     def start_processing(self, job=None, is_rerun=False):
-        if self.is_processing: return
+        if self.is_processing:
+            return
         if not job:
             input_path = self.selected_folder.get() or self.selected_files_list
             if not input_path:
@@ -252,7 +252,8 @@ class KyoQAToolApp(tk.Tk):
             self.log_message(f"{len(paths)} PDF files selected", "info")
 
     def toggle_pause(self):
-        if not self.is_processing: return
+        if not self.is_processing:
+            return
         self.is_paused = not self.is_paused
         if self.is_paused:
             self.pause_event.set()
@@ -264,7 +265,8 @@ class KyoQAToolApp(tk.Tk):
         self.set_led("Paused" if self.is_paused else "Processing")
 
     def stop_processing(self):
-        if not self.is_processing: return
+        if not self.is_processing:
+            return
         if messagebox.askyesno("Confirm Stop", "Stop the current processing job?"):
             self.cancel_event.set()
             self.log_message("Stopping processing...", "warning")
@@ -333,7 +335,8 @@ class KyoQAToolApp(tk.Tk):
         self.is_paused = False
         self.cancel_event.clear()
         self.pause_event.clear()
-        for var in [self.count_pass, self.count_fail, self.count_review, self.count_ocr]: var.set(0)
+        for var in [self.count_pass, self.count_fail, self.count_review, self.count_ocr]:
+            var.set(0)
         self.reviewable_files.clear()
         self.review_tree.delete(*self.review_tree.get_children())
         self.process_btn.config(state=tk.DISABLED)
@@ -357,8 +360,10 @@ class KyoQAToolApp(tk.Tk):
         self.stop_btn.config(state=tk.DISABLED)
         self.exit_btn.config(state=tk.NORMAL)
         self.review_btn.config(state=tk.NORMAL)
-        if self.result_file_path: self.open_result_btn.config(state=tk.NORMAL)
-        if self.reviewable_files: self.rerun_btn.config(state=tk.NORMAL)
+        if self.result_file_path:
+            self.open_result_btn.config(state=tk.NORMAL)
+        if self.reviewable_files:
+            self.rerun_btn.config(state=tk.NORMAL)
         final_status = "Complete" if status == "Complete" else "Error"
         self.status_current_file.set(f"Job {status}")
         self.time_remaining_var.set("Done!")
@@ -386,8 +391,10 @@ class KyoQAToolApp(tk.Tk):
                 elapsed = time.time() - self.start_time
                 rate = current / elapsed
                 remaining = (total - current) / rate if rate > 0 else 0
-                if remaining > 60: self.time_remaining_var.set(f"~{int(remaining/60)}m {int(remaining%60)}s left")
-                else: self.time_remaining_var.set(f"~{int(remaining)}s left")
+                if remaining > 60:
+                    self.time_remaining_var.set(f"~{int(remaining/60)}m {int(remaining%60)}s left")
+                else:
+                    self.time_remaining_var.set(f"~{int(remaining)}s left")
 
     def process_response_queue(self):
         try:
@@ -399,26 +406,33 @@ class KyoQAToolApp(tk.Tk):
                     self.log_message(msg.get("msg", ""), msg.get("tag", "info"))
                 elif mtype == "status":
                     self.status_current_file.set(msg.get("msg", ""))
-                    if "led" in msg: self.set_led(msg["led"])
-                elif mtype == "progress": self.update_progress(msg.get("current", 0), msg.get("total", 1))
+                    if "led" in msg:
+                        self.set_led(msg["led"])
+                elif mtype == "progress":
+                    self.update_progress(msg.get("current", 0), msg.get("total", 1))
                 elif mtype == "increment_counter":
                     var = getattr(self, f"count_{msg.get('counter')}", None)
-                    if var: var.set(var.get() + 1)
+                    if var:
+                        var.set(var.get() + 1)
                 elif mtype == "file_complete":
                     var = getattr(self, f"count_{msg.get('status', '').lower().replace(' ', '_')}", None)
-                    if var: var.set(var.get() + 1)
+                    if var:
+                        var.set(var.get() + 1)
                 elif mtype == "review_item":
                     data = msg.get("data", {})
                     self.reviewable_files.append(data)
                     self.review_tree.insert('', 'end', values=(data.get('filename', 'Unknown'),))
-                elif mtype == "result_path": self.result_file_path = msg.get("path")
+                elif mtype == "result_path":
+                    self.result_file_path = msg.get("path")
                 elif mtype == "finish":
                     status = msg.get("status", "Complete")
                     elapsed = time.time() - self.start_time if self.start_time else 0
                     self.log_message(f"Job finished: {status} (Time: {int(elapsed/60)}m {int(elapsed%60)}s)", "success" if status == "Complete" else "error")
                     self.update_ui_for_finish(status)
-        except queue.Empty: pass
-        except Exception as e: self.log_message(f"Error processing queue: {e}", "error")
+        except queue.Empty:
+            pass
+        except Exception as e:
+            self.log_message(f"Error processing queue: {e}", "error")
         self.after(100, self.process_response_queue)
 
 if __name__ == "__main__":

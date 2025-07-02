@@ -1,8 +1,6 @@
 # update_version.py
 import re
 from pathlib import Path
-from datetime import datetime
-import sys
 
 # --- Configuration ---
 # Add any new files that contain the version number to this list.

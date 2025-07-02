@@ -1,12 +1,23 @@
 # processing_engine.py
-import shutil, time, json, openpyxl, re
-from queue import Queue
+import json
+import shutil
+import time
 from pathlib import Path
 from datetime import datetime
-from openpyxl.styles import PatternFill, Alignment
+
+import openpyxl
+from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
 
-from config import *
+from config import (
+    PDF_TXT_DIR,
+    CACHE_DIR,
+    OUTPUT_DIR,
+    STATUS_COLUMN_NAME,
+    DESCRIPTION_COLUMN_NAME,
+    META_COLUMN_NAME,
+    AUTHOR_COLUMN_NAME,
+)
 from custom_exceptions import FileLockError
 from data_harvesters import harvest_all_data
 from file_utils import is_file_locked

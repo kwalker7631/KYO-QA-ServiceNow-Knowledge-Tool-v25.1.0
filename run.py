@@ -80,7 +80,8 @@ def setup_environment():
     venv_python = get_venv_python_path()
     if not (VENV_DIR.exists() and venv_python.exists()):
         print("[INFO] Creating virtual environment...")
-        if VENV_DIR.exists(): shutil.rmtree(VENV_DIR)
+        if VENV_DIR.exists():
+            shutil.rmtree(VENV_DIR)
         if not run_command_with_spinner([sys.executable, "-m", "venv", str(VENV_DIR)], "Creating venv folder"):
             return False
         print("[INFO] Installing dependencies (this may take a few minutes)...")

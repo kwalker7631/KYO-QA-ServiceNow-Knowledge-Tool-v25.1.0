@@ -4,10 +4,11 @@ import os
 from pathlib import Path
 from logging_utils import setup_logger, log_info, log_error, log_warning
 import pytesseract
-from PIL import Image
-import io
 import cv2  # OpenCV for image processing
 import numpy as np
+from tkinter import simpledialog
+
+from custom_exceptions import PDFExtractionError
 
 logger = setup_logger("ocr_utils")
 
@@ -49,16 +50,36 @@ def init_tesseract():
 
 TESSERACT_AVAILABLE = init_tesseract()
 
+
+def _open_pdf(path):
+    """Open a PDF and prompt for a password if required."""
+    try:
+        doc = fitz.open(path)
+        if doc.needs_pass:
+            pwd = simpledialog.askstring(
+                "Password Required",
+                f"Enter password for {Path(path).name}:",
+                show="*",
+            )
+            if not pwd or not doc.authenticate(pwd):
+                raise PDFExtractionError("Invalid password or unlock failed")
+        return doc
+    except Exception as exc:
+        raise PDFExtractionError(str(exc)) from exc
+
 def _is_ocr_needed(pdf_path):
     """Pre-checks a PDF to see if it's image-based and likely requires OCR."""
     try:
-        with fitz.open(pdf_path) as doc:
+        with _open_pdf(pdf_path) as doc:
             if not doc.is_pdf or doc.is_encrypted:
                 return False
-            
+
             text_length = sum(len(page.get_text("text")) for page in doc)
             if text_length < 150:
                 return True
+    except PDFExtractionError as exc:
+        log_warning(logger, f"{exc}")
+        return False
     except Exception as e:
         log_warning(logger, f"Could not pre-check PDF {Path(pdf_path).name} for OCR needs: {e}")
         return True
@@ -69,7 +90,7 @@ def extract_text_from_pdf(pdf_path):
     try:
         pdf_path = Path(pdf_path)
         text = ""
-        with fitz.open(pdf_path) as doc:
+        with _open_pdf(pdf_path) as doc:
             text = "".join(page.get_text() for page in doc)
             
         if text and len(text.strip()) > 50:
@@ -95,7 +116,7 @@ def extract_text_with_ocr(pdf_path):
         
     all_text = []
     try:
-        with fitz.open(pdf_path) as doc:
+        with _open_pdf(pdf_path) as doc:
             for page_num, page in enumerate(doc):
                 # 1. Render page at a higher DPI for better quality
                 pix = page.get_pixmap(dpi=300)
