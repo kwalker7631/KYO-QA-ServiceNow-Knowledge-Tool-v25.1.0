@@ -6,7 +6,7 @@
 [kyo_qa_tool_app.py: lines 196, 260] – Split one-line if statements for readability.
 [processing_engine.py: lines 1-12] – Replaced wildcard imports with explicit names.
 [run.py: line 83] – Split statement to comply with style guidelines.
-[start_tool.py: line 110] – Fixed typo in global variable list.
+[run.py: line 110] – Fixed typo in global variable list.
 [test_file_utils.py] – Added unit test for is_file_locked function.
 
 [general] – python -m py_compile reported no syntax errors. All current unit tests pass.
