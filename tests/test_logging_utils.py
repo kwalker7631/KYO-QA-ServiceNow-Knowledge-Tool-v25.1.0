@@ -1,10 +1,14 @@
 import logging
-
-import logging_utils
+import importlib
+import config
 
 
 def test_setup_logger_to_console_flag(tmp_path, monkeypatch):
-    monkeypatch.setattr(logging_utils, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path)
+
+    import logging_utils
+    importlib.reload(logging_utils)
+
     monkeypatch.setattr(logging_utils, "SESSION_LOG_FILE", tmp_path / "session.log")
 
     root_logger = logging.getLogger()

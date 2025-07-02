@@ -2,11 +2,11 @@
 from version import VERSION
 import logging
 import sys
-from pathlib import Path
+from config import LOGS_DIR
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-LOG_DIR = Path.cwd() / "logs"
+LOG_DIR = LOGS_DIR
 LOG_DIR.mkdir(exist_ok=True)
 
 SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
