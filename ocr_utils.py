@@ -64,10 +64,11 @@ def _open_pdf(path):
             if not pwd or not doc.authenticate(pwd):
                 raise PDFExtractionError("Invalid password or unlock failed")
         return doc
-    except (fitz.fitz.FileDataError, PermissionError) as exc:
-        raise PDFExtractionError(f"Cannot open PDF: {exc}") from exc
+    # --- BUGFIX: Broadened exception handling to be more robust. ---
+    # This catches any possible error from the PyMuPDF library during the file open
+    # process, finally resolving the persistent 'AttributeError' crash.
     except Exception as exc:
-        raise PDFExtractionError(str(exc)) from exc
+        raise PDFExtractionError(f"PyMuPDF library failed to open file: {exc}") from exc
 
 def _is_ocr_needed(pdf_path):
     """Pre-checks a PDF to see if it's image-based and likely requires OCR."""
@@ -80,7 +81,7 @@ def _is_ocr_needed(pdf_path):
             if text_length < 150:
                 return True
     except PDFExtractionError as exc:
-        log_warning(logger, f"{exc}")
+        log_warning(logger, f"Could not pre-check '{Path(pdf_path).name}': {exc}")
         return False
     except Exception as e:
         log_warning(logger, f"Could not pre-check PDF {Path(pdf_path).name} for OCR needs: {e}")
@@ -97,71 +98,56 @@ def extract_text_from_pdf(pdf_path):
             
         if text and len(text.strip()) > 50:
             log_info(logger, f"Extracted text directly from {pdf_path.name}")
-            result = text
-        elif TESSERACT_AVAILABLE:
+            return text
+        
+        if TESSERACT_AVAILABLE:
             log_info(logger, f"Attempting OCR on {pdf_path.name}")
-            result = extract_text_with_ocr(pdf_path)
-        else:
-            log_warning(logger, f"No text found in {pdf_path.name} and OCR is not available.")
-            result = ""
+            return extract_text_with_ocr(pdf_path)
+        
+        log_warning(logger, f"No text found in {pdf_path.name} and OCR is not available.")
+        raise PDFExtractionError("No text could be extracted and OCR is unavailable.")
 
-        if not result.strip():
-            log_warning(logger, f"No text extracted from {pdf_path.name}")
-            return "[NO TEXT EXTRACTED]"
-
-        return result
+    except PDFExtractionError:
+        raise
     except Exception as exc:
-        log_error(logger, f"Failed to extract text from {pdf_path.name}: {exc}")
-        return "[NO TEXT EXTRACTED]"
+        log_error(logger, f"Failed to extract text from {pdf_path.name}: {exc}", exc_info=True)
+        raise PDFExtractionError(f"A critical error occurred during text extraction: {exc}")
 
-# --- UPDATED OCR FUNCTION ---
+
 def extract_text_with_ocr(pdf_path):
     """Extract text from a PDF using pre-processing and OCR."""
     if not TESSERACT_AVAILABLE:
-        log_warning(logger, "Tesseract OCR not available, cannot perform OCR.")
         return ""
         
     all_text = []
     try:
         with _open_pdf(pdf_path) as doc:
             for page_num, page in enumerate(doc):
-                # 1. Render page at a higher DPI for better quality
                 pix = page.get_pixmap(dpi=300)
                 img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
-                
-                # 2. Convert to OpenCV format (from RGB to BGR)
                 img_cv = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
 
-                # 3. Pre-process the image for better OCR accuracy
-                # Convert to grayscale
                 gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-                # Apply adaptive thresholding to get a clean black and white image
                 binary_img = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
 
-                # 4. Use Tesseract to do OCR on the processed image
-                # lang='eng' for English. Add other languages like 'jpn' if needed (e.g., 'eng+jpn')
-                # --psm 6 assumes a single uniform block of text, often good for technical docs.
                 custom_config = r'--oem 3 --psm 6'
                 try:
-                    page_text = pytesseract.image_to_string(
-                        binary_img, lang="eng", config=custom_config
-                    )
+                    page_text = pytesseract.image_to_string(binary_img, lang="eng+jpn", config=custom_config)
+                    all_text.append(page_text)
+                    log_info(logger, f"OCR processed page {page_num+1} of {pdf_path.name}")
                 except Exception as ocr_err:
-                    log_error(
-                        logger,
-                        f"OCR failed on page {page_num + 1} of {pdf_path.name}: {ocr_err}",
-                        exc_info=True,
-                    )
-                    page_text = "[OCR failed]"
-
-                all_text.append(page_text)
-                log_info(
-                    logger, f"OCR processed page {page_num+1} of {pdf_path.name}"
-                )
+                    log_error(logger, f"OCR failed on page {page_num + 1} of {pdf_path.name}: {ocr_err}")
+                    continue
                 
         result = "\n\n".join(all_text)
+        
+        if not result.strip():
+            raise PDFExtractionError(f"OCR process completed but yielded no text for {Path(pdf_path).name}.")
+
         log_info(logger, f"OCR extraction complete for {pdf_path.name}: {len(result)} chars")
         return result
+    except PDFExtractionError:
+        raise
     except Exception as e:
-        log_error(logger, f"OCR extraction failed for {pdf_path.name}: {e}")
-        return ""
+        log_error(logger, f"Critical OCR extraction failed for {pdf_path.name}: {e}", exc_info=True)
+        raise PDFExtractionError(f"A critical error occurred during OCR: {e}")

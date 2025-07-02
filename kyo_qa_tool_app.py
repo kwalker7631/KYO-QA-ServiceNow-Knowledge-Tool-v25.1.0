@@ -7,7 +7,7 @@ import queue
 import time
 
 from config import BRAND_COLORS, ASSETS_DIR
-from processing_engine import run_processing_job
+from processing_engine import run_processing_job, process_single_pdf
 from file_utils import open_file, ensure_folders, cleanup_temp_files
 from run_state import get_run_count, increment_run_count
 from kyo_review_tool import ReviewWindow
@@ -17,41 +17,30 @@ from gui_components import (
     create_main_header, create_io_section,
     create_process_controls, create_status_and_log_section
 )
+# --- REMOVED: No longer need the API manager ---
 
 logger = logging_utils.setup_logger("app")
-
-# --- Class to redirect stdout/stderr to the UI ---
-class TextRedirector(object):
-    def __init__(self, widget_queue):
-        self.widget_queue = widget_queue
-
-    def write(self, s):
-        self.widget_queue.put(s)
-
-    def flush(self):
-        pass
 
 class KyoQAToolApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-
         self.count_pass = tk.IntVar(value=0)
         self.count_fail = tk.IntVar(value=0)
         self.count_review = tk.IntVar(value=0)
         self.count_ocr = tk.IntVar(value=0)
-        self.count_needs_review = self.count_review
+        self.count_ocr_fail = tk.IntVar(value=0)
 
         self.is_processing = False
         self.is_paused = False
         self.result_file_path = None
-        self.reviewable_files = []
-        self.ocr_failed_files = []
+        self.reviewable_files = {} 
         self.start_time = None
         self.last_run_info = {}
         self.response_queue = queue.Queue()
         self.cancel_event = threading.Event()
         self.pause_event = threading.Event()
+        
         self.selected_folder = tk.StringVar()
         self.selected_excel = tk.StringVar()
         self.selected_files_list = []
@@ -62,6 +51,7 @@ class KyoQAToolApp(tk.Tk):
         self.time_remaining_var = tk.StringVar(value="")
         self.led_status_var = tk.StringVar(value="●")
         self.is_fullscreen = True
+        self.header_status_var = tk.StringVar(value="Ready")
 
         try:
             self.start_icon = tk.PhotoImage(file=ASSETS_DIR / "start.png")
@@ -84,7 +74,7 @@ class KyoQAToolApp(tk.Tk):
         self.attributes("-fullscreen", self.is_fullscreen)
         self.bind("<Escape>", self.toggle_fullscreen)
         self.after(100, self.process_response_queue)
-        self.set_led("Ready")
+        self.set_header_status("Ready", BRAND_COLORS["success_green"])
 
         run_count = get_run_count()
         increment_run_count()
@@ -137,9 +127,15 @@ class KyoQAToolApp(tk.Tk):
         self.style.configure("TLabelFrame", background=BRAND_COLORS["background"], borderwidth=1, relief="groove")
         self.style.configure("TLabelFrame.Label", background=BRAND_COLORS["background"], font=("Segoe UI", 11, "bold"))
         self.style.configure("Blue.Horizontal.TProgressbar", background=BRAND_COLORS["accent_blue"])
-        self.style.configure("Treeview", font=("Segoe UI", 9), fieldbackground=BRAND_COLORS["frame_background"])
+        self.style.configure("Treeview", font=("Segoe UI", 9), rowheight=25, fieldbackground=BRAND_COLORS["frame_background"])
         self.style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
         self.style.configure("TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=[10, 5])
+        
+        self.style.map('Treeview', background=[('selected', BRAND_COLORS["highlight_blue"])])
+        self.review_tree_tags = {
+            "Needs Review": ("#FFEB9C", "black"),
+            "OCR Fail": ("#FFC7CE", "black")
+        }
 
         self.style.configure("TEntry", fieldbackground=BRAND_COLORS["frame_background"], borderwidth=1, relief="solid")
         self.style.map("TEntry",
@@ -162,15 +158,19 @@ class KyoQAToolApp(tk.Tk):
         self.style.configure("Status.TLabel", font=("Segoe UI", 10))
         self.style.configure("Status.Header.TLabel", font=("Segoe UI", 10, "bold"))
         self.style.configure("LED.TLabel", font=("Segoe UI", 16))
+        self.style.configure("HeaderStatus.TLabel", font=("Segoe UI", 12, "bold"), padding=5)
         self.style.configure("Count.Green.TLabel", foreground=BRAND_COLORS["success_green"], font=("Segoe UI", 10, "bold"))
         self.style.configure("Count.Red.TLabel", foreground=BRAND_COLORS["fail_red"], font=("Segoe UI", 10, "bold"))
         self.style.configure("Count.Orange.TLabel", foreground=BRAND_COLORS["warning_orange"], font=("Segoe UI", 10, "bold"))
         self.style.configure("Count.Blue.TLabel", foreground=BRAND_COLORS["accent_blue"], font=("Segoe UI", 10, "bold"))
 
     def _create_widgets(self):
+        # --- MODIFIED: Pass 'self' instead of 'self.app' ---
         create_main_header(self, VERSION, BRAND_COLORS)
         main_frame = ttk.Frame(self, padding=20)
-        main_frame.grid(row=1, column=0, sticky="nsew")
+        main_frame.grid(row=2, column=0, sticky="nsew")
+        self.rowconfigure(2, weight=1)
+        
         main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(2, weight=1)
         create_io_section(main_frame, self)
@@ -180,12 +180,13 @@ class KyoQAToolApp(tk.Tk):
         for tag, (fg, bg) in self.log_text_tags.items():
             self.log_text.tag_configure(f"{tag}_fg", foreground=fg)
             self.log_text.tag_configure(f"{tag}_line", background=bg, selectbackground=BRAND_COLORS["highlight_blue"])
+        
+        for tag, (bg, fg) in self.review_tree_tags.items():
+            self.review_tree.tag_configure(tag, background=bg, foreground=fg)
 
-    # --- Print log messages to the console for debugging purposes ---
     def log_message(self, message, level="info"):
         timestamp = time.strftime("%H:%M:%S")
         
-        # This sends the log to the "Status & Logs" tab
         self.log_text.config(state=tk.NORMAL)
         start_index = self.log_text.index(tk.END)
         self.log_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
@@ -196,9 +197,7 @@ class KyoQAToolApp(tk.Tk):
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
 
-        # Also print to the console so logs are visible when run from a terminal
         print(f"[{timestamp}] [{level.upper()}] {message}")
-
 
     def start_processing(self, job=None, is_rerun=False):
         if self.is_processing:
@@ -221,54 +220,26 @@ class KyoQAToolApp(tk.Tk):
         threading.Thread(target=run_processing_job, args=(job, self.response_queue, self.cancel_event, self.pause_event), daemon=True).start()
 
     def rerun_flagged_job(self):
-        if not self.reviewable_files:
-            messagebox.showwarning("No Files", "No files need re-running.")
+        files_to_rerun = [item["pdf_path"] for item in self.reviewable_files.values() if Path(item["pdf_path"]).exists()]
+        if not files_to_rerun:
+            messagebox.showwarning("No Files", "No files are currently flagged for re-run.")
             return
         if not self.result_file_path:
-            messagebox.showerror("Error", "Previous result file not found.")
+            messagebox.showerror("Error", "Previous result file not found. Cannot re-run.")
             return
-        files = [item["pdf_path"] for item in self.reviewable_files]
-        self.log_message(f"Re-running {len(files)} flagged files...", "info")
-        self.start_processing(job={"excel_path": self.result_file_path, "input_path": files}, is_rerun=True)
-
-    def _resolve_failed_file(self, filename: str):
-        """Return full path for a failed OCR file."""
-        folder = self.selected_folder.get()
-        if folder:
-            path = Path(folder) / filename
-            if path.exists():
-                return str(path)
-        for f in self.selected_files_list:
-            if Path(f).name == filename:
-                return f
-        return None
+        self.log_message(f"Re-running {len(files_to_rerun)} flagged files...", "info")
+        self.start_processing(job={"excel_path": self.result_file_path, "input_path": files_to_rerun}, is_rerun=True)
 
     def retry_failed_ocr(self):
-        if not self.ocr_failed_files:
+        ocr_fails = {k: v for k, v in self.reviewable_files.items() if v.get("status") == "OCR Fail"}
+        if not ocr_fails:
             messagebox.showinfo("No OCR Failures", "There are no OCR failures to retry.")
-            self.retry_ocr_btn.config(state=tk.DISABLED)
             return
-        filename = self.ocr_failed_files.pop(0)
-        file_path = self._resolve_failed_file(filename)
-        if not file_path:
-            messagebox.showerror("File Not Found", f"Could not locate {filename}.")
-            return
-        self.log_message(f"Retrying OCR for {filename}", "info")
-        q = queue.Queue()
-        result = process_single_pdf(file_path, q, ignore_cache=True)
-        while not q.empty():
-            msg = q.get()
-            if msg.get("type") == "log":
-                self.log_message(msg.get("msg", ""), msg.get("tag", "info"))
-        if result and result.get("status") != "Fail":
-            messagebox.showinfo("Success", f"OCR succeeded for {filename}.")
-            self.log_message(f"OCR retry succeeded for {filename}", "success")
-        else:
-            messagebox.showerror("Retry Failed", f"OCR failed again for {filename}.")
-            self.log_message(f"OCR retry failed for {filename}", "error")
-            self.ocr_failed_files.append(filename)
-        if not self.ocr_failed_files:
-            self.retry_ocr_btn.config(state=tk.DISABLED)
+
+        failed_paths = [item['pdf_path'] for item in ocr_fails.values()]
+        self.log_message(f"Retrying OCR for {len(failed_paths)} files...", "info")
+        self.start_processing(job={"excel_path": self.result_file_path, "input_path": failed_paths}, is_rerun=True)
+
 
     def browse_excel(self):
         path = filedialog.askopenfilename(title="Select Excel Template", filetypes=[("Excel Files", "*.xlsx *.xlsm"), ("All Files", "*.*")])
@@ -300,9 +271,11 @@ class KyoQAToolApp(tk.Tk):
         if self.is_paused:
             self.pause_event.set()
             self.pause_btn.config(text=" Resume")
+            self.set_header_status("Paused", BRAND_COLORS["warning_orange"])
         else:
             self.pause_event.clear()
             self.pause_btn.config(text=" Pause")
+            self.set_header_status("Processing...", BRAND_COLORS["accent_blue"])
         self.log_message("Processing paused" if self.is_paused else "Processing resumed", "warning" if self.is_paused else "info")
         self.set_led("Paused" if self.is_paused else "Processing")
 
@@ -312,6 +285,7 @@ class KyoQAToolApp(tk.Tk):
         if messagebox.askyesno("Confirm Stop", "Stop the current processing job?"):
             self.cancel_event.set()
             self.log_message("Stopping processing...", "warning")
+            self.set_header_status("Stopping...", BRAND_COLORS["fail_red"])
             self.set_led("Stopping")
 
     def on_closing(self):
@@ -327,14 +301,13 @@ class KyoQAToolApp(tk.Tk):
             try:
                 open_file(self.result_file_path)
                 self.log_message(f"Opened result file: {Path(self.result_file_path).name}", "info")
-            except FileNotFoundError:
-                messagebox.showerror("Error", "Result file not found.")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open file:\n{e}")
         else:
             messagebox.showwarning("Not Found", "Result file not found or has been moved.")
 
     def open_pattern_manager(self):
+        # --- REMOVED: No longer need to pass an API key. ---
         dialog = tk.Toplevel(self)
         dialog.title("Select Pattern Type")
         dialog.geometry("300x150")
@@ -348,10 +321,14 @@ class KyoQAToolApp(tk.Tk):
         button_frame.pack(pady=10)
         def open_review(pattern_name, label):
             dialog.destroy()
-            file_info = self.reviewable_files[0] if self.reviewable_files else None
+            file_info = next(iter(self.reviewable_files.values()), None)
             ReviewWindow(self, pattern_name, label, file_info)
         ttk.Button(button_frame, text="Model Patterns", command=lambda: open_review("MODEL_PATTERNS", "Model Patterns")).pack(side="left", padx=10)
         ttk.Button(button_frame, text="QA Patterns", command=lambda: open_review("QA_NUMBER_PATTERNS", "QA Number Patterns")).pack(side="left", padx=10)
+
+    def set_header_status(self, text, color):
+        self.header_status_var.set(text)
+        self.style.configure("HeaderStatus.TLabel", foreground=color, background=BRAND_COLORS["frame_background"])
 
     def set_led(self, status):
         led_config = {
@@ -380,11 +357,11 @@ class KyoQAToolApp(tk.Tk):
         self.is_paused = False
         self.cancel_event.clear()
         self.pause_event.clear()
-        for var in [self.count_pass, self.count_fail, self.count_review, self.count_ocr]:
+        for var in [self.count_pass, self.count_fail, self.count_review, self.count_ocr, self.count_ocr_fail]:
             var.set(0)
         self.reviewable_files.clear()
         self.review_tree.delete(*self.review_tree.get_children())
-        self.ocr_failed_files.clear()
+        
         self.process_btn.config(state=tk.DISABLED)
         self.pause_btn.config(state=tk.NORMAL, text=" Pause")
         self.stop_btn.config(state=tk.NORMAL)
@@ -394,6 +371,7 @@ class KyoQAToolApp(tk.Tk):
         self.rerun_btn.config(state=tk.DISABLED)
         self.retry_ocr_btn.config(state=tk.DISABLED)
         self.review_file_btn.config(state=tk.DISABLED)
+        
         self.status_current_file.set("Initializing...")
         self.time_remaining_var.set("Calculating...")
         self.progress_value.set(0)
@@ -401,6 +379,7 @@ class KyoQAToolApp(tk.Tk):
         self.stage_var.set("Processing")
         self.cancel_progress_btn.config(state=tk.NORMAL)
         self.set_led("Processing")
+        self.set_header_status("Initializing...", BRAND_COLORS["accent_blue"])
 
     def update_ui_for_finish(self, status):
         self.is_processing = False
@@ -410,19 +389,26 @@ class KyoQAToolApp(tk.Tk):
         self.stop_btn.config(state=tk.DISABLED)
         self.exit_btn.config(state=tk.NORMAL)
         self.review_btn.config(state=tk.NORMAL)
+        
         if self.result_file_path:
             self.open_result_btn.config(state=tk.NORMAL)
-        if self.reviewable_files:
+        if any(v['status'] == 'Needs Review' for v in self.reviewable_files.values()):
             self.rerun_btn.config(state=tk.NORMAL)
-        if self.ocr_failed_files:
+        if any(v['status'] == 'OCR Fail' for v in self.reviewable_files.values()):
             self.retry_ocr_btn.config(state=tk.NORMAL)
-        final_status = "Complete" if status == "Complete" else "Error"
-        self.status_current_file.set(f"Job {status}")
+            
+        is_error = "error" in status.lower() or "cancelled" in status.lower()
+        final_status_text = "Job " + status
+        final_header_text = status
+        final_header_color = BRAND_COLORS["fail_red"] if is_error else BRAND_COLORS["success_green"]
+        
+        self.status_current_file.set(final_status_text)
         self.time_remaining_var.set("Done!")
         self.progress_percent_var.set("100%")
         self.stage_var.set(status)
         self.cancel_progress_btn.config(state=tk.DISABLED)
-        self.set_led(final_status)
+        self.set_led("Error" if is_error else "Complete")
+        self.set_header_status(final_header_text, final_header_color)
         self.progress_value.set(100)
 
     def open_review_for_selected_file(self):
@@ -431,8 +417,7 @@ class KyoQAToolApp(tk.Tk):
             messagebox.showwarning("No Selection", "Please select a file to review.")
             return
         item_id = selection[0]
-        filename = self.review_tree.item(item_id, "values")[0]
-        review_info = next((f for f in self.reviewable_files if f['filename'] == filename), None)
+        review_info = self.reviewable_files.get(item_id)
         if review_info:
             ReviewWindow(self, "MODEL_PATTERNS", "Model Patterns", review_info)
         else:
@@ -457,13 +442,15 @@ class KyoQAToolApp(tk.Tk):
             while not self.response_queue.empty():
                 msg = self.response_queue.get_nowait()
                 mtype = msg.get("type")
+                
                 if mtype == "log":
-                    # This now calls the updated log_message function
                     self.log_message(msg.get("msg", ""), msg.get("tag", "info"))
                 elif mtype == "status":
                     self.status_current_file.set(msg.get("msg", ""))
                     if "led" in msg:
                         self.set_led(msg["led"])
+                elif mtype == "header_status":
+                    self.set_header_status(msg.get("text", "..."), msg.get("color", "black"))
                 elif mtype == "progress":
                     self.update_progress(msg.get("current", 0), msg.get("total", 1))
                 elif mtype == "increment_counter":
@@ -471,26 +458,29 @@ class KyoQAToolApp(tk.Tk):
                     if var:
                         var.set(var.get() + 1)
                 elif mtype == "file_complete":
-                    var = getattr(self, f"count_{msg.get('status', '').lower().replace(' ', '_')}", None)
+                    status_map = {"pass": self.count_pass, "fail": self.count_fail, 
+                                  "needs review": self.count_review, "ocr fail": self.count_ocr_fail}
+                    status_key = msg.get('status', '').lower()
+                    var = status_map.get(status_key)
                     if var:
                         var.set(var.get() + 1)
                 elif mtype == "review_item":
                     data = msg.get("data", {})
-                    self.reviewable_files.append(data)
-                    self.review_tree.insert('', 'end', values=(data.get('filename', 'Unknown'),))
-                elif mtype == "ocr_failed":
-                    fname = msg.get("file")
-                    if fname:
-                        self.ocr_failed_files.append(fname)
-                        self.retry_ocr_btn.config(state=tk.NORMAL)
-                        self.log_message(f"OCR failed for {fname}.", "error")
+                    filename = data.get('filename', 'Unknown')
+                    status = data.get('status', 'Unknown')
+                    reason = data.get('reason', '')
+                    item_id = self.review_tree.insert('', 'end', iid=filename, values=(filename, status, reason), tags=(status,))
+                    self.reviewable_files[filename] = data
                 elif mtype == "result_path":
                     self.result_file_path = msg.get("path")
+                elif mtype == "locked_file":
+                    messagebox.showerror("File Locked", f"The output file is locked:\n\n{msg.get('path')}\n\nPlease close the file and re-run the process.")
                 elif mtype == "finish":
                     status = msg.get("status", "Complete")
                     elapsed = time.time() - self.start_time if self.start_time else 0
                     self.log_message(f"Job finished: {status} (Time: {int(elapsed/60)}m {int(elapsed%60)}s)", "success" if status == "Complete" else "error")
                     self.update_ui_for_finish(status)
+
         except queue.Empty:
             pass
         except Exception as e:
@@ -503,5 +493,5 @@ if __name__ == "__main__":
         app.mainloop()
     except Exception as e:
         import traceback
-        print(f"Failed to start application: {e}\n{traceback.format_exc()}")
-        input("Press Enter to exit...")
+        logger.error("Critical application failure", exc_info=True)
+        messagebox.showerror("Fatal Error", f"A critical error occurred and the application must close.\n\nDetails have been saved to the log file.\n\nError: {e}")
