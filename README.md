@@ -10,14 +10,14 @@ v25.1.0
 
 - **Python 3.11.x (64-bit):** Download Python 3.11.9 Windows Installer or use a portable version in `python-3.11.9` folder.
 - **Tesseract OCR:** Tesseract Windows Installer (UB Mannheim) or place portable binary in `tesseract` folder.
-- **Dependencies:** Listed in `requirements.txt` (auto-installed via `start_tool.py`). Key packages include `PySide6` for the GUI, `PyMuPDF` for PDF handling, `Pillow` for images, and `ollama` for AI features. `googletrans` (pinned to `4.0.0-rc1`) enables optional translations. If the separate `extract` package is installed, `ai_extractor` will use it; otherwise a built-in fallback runs.
+- **Dependencies:** Listed in `requirements.txt` (auto-installed via `run.py`). Key packages include `PySide6` for the GUI, `PyMuPDF` for PDF handling, `Pillow` for images, `ollama` for AI features, and `extract` for extra data extraction helpers.
 - **Install PySide6:** If it doesn't auto-install, run `pip install PySide6` inside the `venv`.
 
 ### 2. Folder Structure
 
 KYO_QA_ServiceNow_Knowledge_Tool_v25.1.0/\
 ├── START.bat\
-├── start_tool.py\
+├── run.py\
 ├── requirements.txt\
 ├── README.md\
 ├── CHANGELOG.md\
@@ -48,7 +48,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 | File | Description |
 | --- | --- |
 | `START.bat` | One-click Windows launcher |
-| `start_tool.py` | Initializes environment and starts tool |
+| `run.py` | Initializes environment and starts tool |
 | `requirements.txt` | List Python dependencies |
 | `README.md` | Setup instructions and usage guide |
 | `CHANGELOG.md` | Version history and updates |
@@ -97,7 +97,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
 1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v25.1.0`).
 2. Install Python 3.11.x or place portable Python in `python-3.11.9`. Optionally, install Tesseract or place in `tesseract` folder.
-3. Run `START.bat` (Windows) or `python start_tool.py`:
+3. Run `START.bat` (Windows) or `python run.py`:
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
    - Outputs logs to `/logs/` and Excel to `/output/`.
 4. Manual setup (if needed):
@@ -116,7 +116,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
 ### 4. Usage
 
-1. Launch the tool via `START.bat` or `python start_tool.py`.
+1. Launch the tool via `START.bat` or `python run.py`.
 2. Select an Excel file with a “Meta” column (case-insensitive).
 3. Select a folder or PDF files (`.pdf` or `.zip`) containing Kyocera QA/service documents.
 4. Click "Start Processing" to:
