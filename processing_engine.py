@@ -79,16 +79,22 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
             progress_queue.put({"type": "increment_counter", "counter": "ocr"})
         
         extracted_text = extract_text_from_pdf(absolute_pdf_path)
-        
-        progress_queue.put({"type": "status", "msg": filename, "led": "AI"})
-        data = harvest_all_data(extracted_text, filename)
-        
-        if data["models"] == "Not Found":
-            status = "Needs Review"
-            reason = "Model pattern not found"
+
+        if ocr_required and not extracted_text.strip():
+            progress_queue.put({"type": "ocr_failed"})
+            status = "Fail"
+            reason = "No text extracted via OCR"
+            data = {"models": "Not Found", "author": ""}
         else:
-            status = "Pass"
-            reason = ""
+            progress_queue.put({"type": "status", "msg": filename, "led": "AI"})
+            data = harvest_all_data(extracted_text, filename)
+
+            if data["models"] == "Not Found":
+                status = "Needs Review"
+                reason = "Model pattern not found"
+            else:
+                status = "Pass"
+                reason = ""
             
         result = {
             "filename": filename, 

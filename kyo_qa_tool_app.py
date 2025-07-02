@@ -21,6 +21,21 @@ from gui_components import (
 
 logger = logging_utils.setup_logger("app")
 
+
+class TextRedirector:
+    """Simple queue-based text sink used for tests."""
+
+    def __init__(self, q: queue.Queue):
+        self._queue = q
+
+    def write(self, text: str) -> None:
+        """Enqueue the provided text."""
+        self._queue.put(text)
+
+    def flush(self) -> None:  # pragma: no cover - for compatibility
+        """Required for file-like objects; does nothing."""
+        pass
+
 class KyoQAToolApp(tk.Tk):
     def __init__(self):
         super().__init__()
