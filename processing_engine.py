@@ -76,7 +76,15 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
     
     extracted_text = extract_text_from_pdf(absolute_pdf_path)
     if not extracted_text.strip():
-        result = {"filename": filename, "models": "Error: Text Extraction Failed", "author": "", "status": "Fail", "ocr_used": ocr_required, "review_info": None}
+        progress_queue.put({"type": "ocr_failed", "file": filename})
+        result = {
+            "filename": filename,
+            "models": "Error: Text Extraction Failed",
+            "author": "",
+            "status": "Fail",
+            "ocr_used": ocr_required,
+            "review_info": None,
+        }
     else:
         progress_queue.put({"type": "status", "msg": filename, "led": "AI"})
         data = harvest_all_data(extracted_text, filename)
