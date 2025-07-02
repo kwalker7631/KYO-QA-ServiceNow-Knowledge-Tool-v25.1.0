@@ -65,6 +65,23 @@ def run_command_with_spinner(command, message):
         sys.stdout.write(f"\r{Colors.RED}✗{Colors.ENDC} {message}... Failed.\n")
         return False
 
+
+def ensure_pip(venv_python: Path) -> bool:
+    """Ensure pip is available in the virtual environment."""
+    try:
+        subprocess.check_call(
+            [str(venv_python), "-m", "pip", "--version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("[INFO] Installing pip in the venv...")
+        return run_command_with_spinner(
+            [str(venv_python), "-m", "ensurepip", "--upgrade"],
+            "Bootstrapping pip",
+        )
+
 def get_venv_python_path():
     """Gets the path to the Python executable in the virtual environment."""
     return VENV_DIR / "Scripts" / "python.exe" if sys.platform == "win32" else VENV_DIR / "bin" / "python"
@@ -84,9 +101,13 @@ def setup_environment():
             shutil.rmtree(VENV_DIR)
         if not run_command_with_spinner([sys.executable, "-m", "venv", str(VENV_DIR)], "Creating venv folder"):
             return False
+    if not ensure_pip(venv_python):
+        return False
+    if not (VENV_DIR / "installed.flag").exists():
         print("[INFO] Installing dependencies (this may take a few minutes)...")
         if not run_command_with_spinner([str(venv_python), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)], "Installing packages"):
             return False
+        (VENV_DIR / "installed.flag").touch()
     
     print(f"{Colors.GREEN}✓ Environment is ready.{Colors.ENDC}")
     return True

@@ -98,7 +98,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v25.1.0`).
 2. Install Python 3.11.x or place portable Python in `python-3.11.9`. Optionally, install Tesseract or place in `tesseract` folder.
 3. Run `START.bat` (Windows) or `python run.py`:
-   - Sets up `/venv/` and installs dependencies from `requirements.txt`.
+   - Sets up `/venv/`, bootstrapping `pip` if needed, and installs dependencies from `requirements.txt`.
    - Outputs logs to `/logs/` and Excel to `/output/`.
 4. Manual setup (if needed):
 
