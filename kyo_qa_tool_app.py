@@ -305,6 +305,8 @@ class KyoQAToolApp(tk.Tk):
             try:
                 open_file(self.result_file_path)
                 self.log_message(f"Opened result file: {Path(self.result_file_path).name}", "info")
+            except FileNotFoundError:
+                messagebox.showerror("Error", "Result file not found.")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open file:\n{e}")
         else:

@@ -137,7 +137,12 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event):
             return
 
         progress_queue.put({"type": "status", "msg": "Updating Excel...", "led": "Saving"})
-        workbook = openpyxl.load_workbook(cloned_path)
+        try:
+            workbook = openpyxl.load_workbook(cloned_path)
+        except openpyxl.utils.exceptions.InvalidFileException as exc:
+            progress_queue.put({"type": "log", "tag": "error", "msg": f"Invalid Excel file: {exc}"})
+            progress_queue.put({"type": "finish", "status": "Error"})
+            return
         sheet = workbook.active
         headers = [c.value for c in sheet[1]]
         if STATUS_COLUMN_NAME not in headers:
