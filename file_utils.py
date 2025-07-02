@@ -13,13 +13,28 @@ def ensure_folders():
 
 def is_file_locked(filepath):
     """Check if a file is locked by another process."""
-    try:
-        # Try to open the file in append mode. If it's locked, this will fail.
-        with open(filepath, "a"):
-            pass
-    except IOError:
-        return True
-    return False
+    filepath = str(filepath)
+    if os.name == "nt":
+        try:
+            import msvcrt
+            fh = open(filepath, "a")
+            try:
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            finally:
+                fh.close()
+            return False
+        except OSError:
+            return True
+    else:
+        try:
+            import fcntl
+            with open(filepath, "a") as f:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(f, fcntl.LOCK_UN)
+            return False
+        except (OSError, IOError):
+            return True
 
 # --- UPDATED FUNCTION ---
 def cleanup_temp_files():

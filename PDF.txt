@@ -16,3 +16,9 @@
 [kyo_qa_tool_app.py: lines 303-309] – open_result catches all exceptions. Add specific handling for FileNotFoundError to show "File not found" dialog.
 [tests/test_file_utils.py] – Only checks unlocked file case. Add a test that locks a file and asserts is_file_locked returns True.
 [misc] – Many .py files lack a trailing newline (e.g., config.py, custom_exceptions.py). Add final newline for style compliance.
+[file_utils.py: lines 14-37] – Improved is_file_locked to use msvcrt on Windows and fcntl on other systems for accurate lock detection.
+[processing_engine.py: lines 139-145] – Wrapped load_workbook in try/except for InvalidFileException to avoid crashes on protected files.
+[ocr_utils.py: lines 54-70] – _open_pdf now handles FileDataError and PermissionError with clear PDFExtractionError messages.
+[kyo_qa_tool_app.py: lines 303-311] – open_result shows a specific error when the result file is missing.
+[tests/test_file_utils.py: lines 17-25] – Added test to validate locked file detection.
+[misc] – Added trailing newlines to several modules for PEP 8 compliance.

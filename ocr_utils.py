@@ -64,6 +64,8 @@ def _open_pdf(path):
             if not pwd or not doc.authenticate(pwd):
                 raise PDFExtractionError("Invalid password or unlock failed")
         return doc
+    except (fitz.fitz.FileDataError, PermissionError) as exc:
+        raise PDFExtractionError(f"Cannot open PDF: {exc}") from exc
     except Exception as exc:
         raise PDFExtractionError(str(exc)) from exc
 
