@@ -20,6 +20,11 @@ from config import (
     # --- ADDED: Import BRAND_COLORS to fix the NameError crash. ---
     BRAND_COLORS,
 )
+
+import queue
+import threading
+import tempfile
+import zipfile
 from data_harvesters import harvest_all_data
 from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
@@ -255,3 +260,50 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event):
         error_details = traceback.format_exc()
         progress_queue.put({"type": "log", "tag": "error", "msg": f"Critical error in processing job: {e}\n{error_details}"})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
+
+
+def _dispatch_messages(progress_queue, log_callback, status_callback, header_callback, progress_callback, finish_callback):
+    """Internal helper to forward queued messages to callbacks."""
+    while not progress_queue.empty():
+        msg = progress_queue.get()
+        mtype = msg.get("type")
+        if mtype == "log" and log_callback:
+            log_callback(msg.get("msg", ""))
+        elif mtype == "status" and status_callback:
+            status_callback(msg.get("msg", ""))
+        elif mtype == "header_status" and header_callback:
+            header_callback(msg.get("text", ""))
+        elif mtype == "progress" and progress_callback:
+            progress_callback(msg.get("current", 0), msg.get("total", 0))
+        elif mtype == "finish" and finish_callback:
+            finish_callback(msg.get("status", ""))
+
+
+def _execute_job(job, log_callback, status_callback, header_callback, progress_callback, finish_callback, cancel_check):
+    q = queue.Queue()
+    cancel_event = threading.Event()
+    worker = threading.Thread(target=run_processing_job, args=(job, q, cancel_event, None))
+    worker.start()
+
+    while worker.is_alive():
+        _dispatch_messages(q, log_callback, status_callback, header_callback, progress_callback, finish_callback)
+        if cancel_check and cancel_check():
+            cancel_event.set()
+        time.sleep(0.1)
+
+    worker.join()
+    _dispatch_messages(q, log_callback, status_callback, header_callback, progress_callback, finish_callback)
+
+
+def process_folder(folder_path, excel_path, log_callback, status_callback, header_callback, progress_callback, cancel_check):
+    """Process all PDFs in a folder using run_processing_job."""
+    job = {"excel_path": excel_path, "input_path": folder_path}
+    _execute_job(job, log_callback, status_callback, header_callback, progress_callback, None, cancel_check)
+
+
+def process_zip_archive(zip_path, excel_path, log_callback, status_callback, header_callback, progress_callback, cancel_check):
+    """Extract a zip of PDFs and process the contents."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmpdir)
+        process_folder(tmpdir, excel_path, log_callback, status_callback, header_callback, progress_callback, cancel_check)
