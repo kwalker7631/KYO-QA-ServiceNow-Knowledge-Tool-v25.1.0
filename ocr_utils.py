@@ -97,17 +97,22 @@ def extract_text_from_pdf(pdf_path):
             
         if text and len(text.strip()) > 50:
             log_info(logger, f"Extracted text directly from {pdf_path.name}")
-            return text
-            
-        if TESSERACT_AVAILABLE:
+            result = text
+        elif TESSERACT_AVAILABLE:
             log_info(logger, f"Attempting OCR on {pdf_path.name}")
-            return extract_text_with_ocr(pdf_path)
+            result = extract_text_with_ocr(pdf_path)
         else:
             log_warning(logger, f"No text found in {pdf_path.name} and OCR is not available.")
-            return ""
+            result = ""
+
+        if not result.strip():
+            log_warning(logger, f"No text extracted from {pdf_path.name}")
+            return "[NO TEXT EXTRACTED]"
+
+        return result
     except Exception as exc:
         log_error(logger, f"Failed to extract text from {pdf_path.name}: {exc}")
-        return ""
+        return "[NO TEXT EXTRACTED]"
 
 # --- UPDATED OCR FUNCTION ---
 def extract_text_with_ocr(pdf_path):
@@ -137,10 +142,22 @@ def extract_text_with_ocr(pdf_path):
                 # lang='eng' for English. Add other languages like 'jpn' if needed (e.g., 'eng+jpn')
                 # --psm 6 assumes a single uniform block of text, often good for technical docs.
                 custom_config = r'--oem 3 --psm 6'
-                page_text = pytesseract.image_to_string(binary_img, lang='eng', config=custom_config)
-                
+                try:
+                    page_text = pytesseract.image_to_string(
+                        binary_img, lang="eng", config=custom_config
+                    )
+                except Exception as ocr_err:
+                    log_error(
+                        logger,
+                        f"OCR failed on page {page_num + 1} of {pdf_path.name}: {ocr_err}",
+                        exc_info=True,
+                    )
+                    page_text = "[OCR failed]"
+
                 all_text.append(page_text)
-                log_info(logger, f"OCR processed page {page_num+1} of {pdf_path.name}")
+                log_info(
+                    logger, f"OCR processed page {page_num+1} of {pdf_path.name}"
+                )
                 
         result = "\n\n".join(all_text)
         log_info(logger, f"OCR extraction complete for {pdf_path.name}: {len(result)} chars")
