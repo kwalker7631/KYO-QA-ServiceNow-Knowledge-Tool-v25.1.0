@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 import shutil
 from version import get_version
-import error_tracker
 
 # --- Configuration ---
 VENV_DIR = Path(__file__).parent / "venv"
@@ -132,8 +131,9 @@ def launch_application():
         print(f"An error occurred: {e}\nPlease check logs for details.")
 
 if __name__ == "__main__":
-    error_tracker.install()
     if setup_environment():
+        import error_tracker
+        error_tracker.init_error_tracker()
         initialize_colors()
         launch_application()
     else:

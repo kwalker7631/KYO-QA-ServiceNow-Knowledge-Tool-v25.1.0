@@ -30,3 +30,29 @@ sys.modules.setdefault("numpy", types.ModuleType("numpy"))
 pt_stub = types.ModuleType("pytesseract")
 pt_stub.image_to_string = lambda *a, **k: ""
 sys.modules.setdefault("pytesseract", pt_stub)
+
+# Provide minimal logging_utils stubs if module missing
+if "logging_utils" not in sys.modules:
+    logging_utils_stub = types.ModuleType("logging_utils")
+    import logging
+    logging_utils_stub.setup_logger = lambda name=None, level=logging.INFO, **k: logging.getLogger(name)
+    logging_utils_stub.log_info = lambda *a, **k: None
+    logging_utils_stub.log_error = lambda *a, **k: None
+    logging_utils_stub.log_warning = lambda *a, **k: None
+    sys.modules["logging_utils"] = logging_utils_stub
+
+# Stub sentry_sdk to avoid import errors during tests
+import logging
+
+sentry_stub = types.ModuleType("sentry_sdk")
+sentry_stub.init = lambda *a, **k: None
+logging_mod = types.ModuleType("sentry_sdk.integrations.logging")
+class _EventHandler(logging.Handler):
+    def __init__(self, *a, **k):
+        super().__init__()
+
+logging_mod.EventHandler = _EventHandler
+logging_mod.LoggingIntegration = lambda *a, **k: None
+sys.modules.setdefault("sentry_sdk", sentry_stub)
+sys.modules.setdefault("sentry_sdk.integrations", types.ModuleType("sentry_sdk.integrations"))
+sys.modules.setdefault("sentry_sdk.integrations.logging", logging_mod)
