@@ -12,7 +12,7 @@ import threading
 
 try:
     import sentry_sdk
-except Exception:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - optional dependency
     sentry_sdk = None
 
 # --- Configuration ---
