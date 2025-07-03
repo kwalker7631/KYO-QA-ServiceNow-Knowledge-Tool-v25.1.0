@@ -25,12 +25,22 @@ def cleanup_temp_files():
 
 def ensure_folders():
     """Ensure all required folders exist."""
-    # Import here to avoid circular imports
-    from config import OUTPUT_DIR, PDF_TXT_DIR
-    
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    PDF_TXT_DIR.mkdir(exist_ok=True)
-    
+    # Import inside function to avoid circular imports
+    from config import (
+        OUTPUT_DIR,
+        PDF_TXT_DIR,
+        NEED_REVIEW_DIR,
+        OCR_FAILED_DIR,
+        LOGS_DIR,
+        CACHE_DIR,
+    )
+
+    for path in (OUTPUT_DIR, PDF_TXT_DIR, NEED_REVIEW_DIR, OCR_FAILED_DIR, LOGS_DIR, CACHE_DIR):
+        path.mkdir(parents=True, exist_ok=True)
+
+    review_subdir = NEED_REVIEW_DIR / "needs_review"
+    review_subdir.mkdir(parents=True, exist_ok=True)
+
     temp_dir = get_temp_dir()
     temp_dir.mkdir(exist_ok=True)
 

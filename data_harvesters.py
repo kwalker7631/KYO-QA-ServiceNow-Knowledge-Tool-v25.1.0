@@ -1,6 +1,9 @@
 # data_harvesters.py
 import logging
-import pandas as pd
+try:
+    import pandas as pd
+except Exception:  # pragma: no cover - optional dependency
+    pd = None
 import re
 
 logger = logging.getLogger(__name__)
@@ -8,6 +11,9 @@ KNOWLEDGE_BASE_FIELDS = ['number', 'short_description', 'kb_knowledge_base']
 
 class DataHarvester:
     def harvest_from_excel(self, file_path):
+        if pd is None:
+            logger.error("pandas is required to harvest from Excel")
+            return []
         try:
             # More adaptable: Try to find a relevant sheet name
             xls = pd.ExcelFile(file_path)
@@ -114,3 +120,14 @@ def bulletproof_extraction(text_content, filename=None):
         "full_qa_number": full_qa_number,
         "qa_number": qa_number
     }
+
+
+def harvest_all_data(text_content: str, filename: str | None = None) -> dict:
+    """Compatibility wrapper expected by other modules."""
+    return bulletproof_extraction(text_content, filename)
+
+
+def harvest_author(text_content: str) -> str:
+    """Return only the author name from text content."""
+    result = bulletproof_extraction(text_content)
+    return result.get("author", "")

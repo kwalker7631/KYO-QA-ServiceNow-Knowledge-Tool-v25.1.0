@@ -5,6 +5,12 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR / "output"
 PDF_TXT_DIR = BASE_DIR / "review_files"
+NEED_REVIEW_DIR = PDF_TXT_DIR
+OCR_FAILED_DIR = PDF_TXT_DIR
+LOGS_DIR = BASE_DIR / "logs"
+CACHE_DIR = BASE_DIR / ".cache"
+for _d in (OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR, LOGS_DIR):
+    _d.mkdir(exist_ok=True)
 
 # Column name for models/metadata in Excel sheet
 # This is the column where model information will be stored
