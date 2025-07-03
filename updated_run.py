@@ -1,5 +1,5 @@
 # run.py
-# Version: 25.1.0
+# Version: 25.1.2
 # Last modified: 2025-07-02
 # Application launcher with dependency setup and error handling
 
@@ -99,6 +99,13 @@ def ensure_pip(python_path):
             "Installing pip"
         )
 
+def create_empty_assets_folder():
+    """Create the assets folder if it doesn't exist."""
+    assets_dir = Path(__file__).parent / "assets"
+    assets_dir.mkdir(exist_ok=True)
+    print(f"{Colors.GREEN}✓ Created assets folder.{Colors.ENDC}")
+    return True
+
 def setup_environment():
     """Checks Python version, creates venv, and installs dependencies."""
     print_header()
@@ -130,6 +137,9 @@ def setup_environment():
         # Verify dependencies
         if not run_command_with_spinner([str(venv_python), "-m", "pip", "install", "--quiet", "-r", str(REQUIREMENTS_FILE)], "Verifying dependencies"):
             print(f"{Colors.YELLOW}Warning: Some dependencies may not be properly installed.{Colors.ENDC}")
+    
+    # Create assets folder for icons
+    create_empty_assets_folder()
     
     print(f"{Colors.GREEN}✓ Environment is ready.{Colors.ENDC}")
     return True

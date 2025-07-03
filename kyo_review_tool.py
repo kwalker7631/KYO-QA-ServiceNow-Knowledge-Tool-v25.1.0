@@ -1,4 +1,8 @@
 # kyo_review_tool.py
+# Version: 25.1.0
+# Last modified: 2025-07-02
+# Pattern management tool for customizing extraction patterns
+
 import tkinter as tk
 from tkinter import messagebox, ttk, simpledialog
 from pathlib import Path
@@ -8,9 +12,6 @@ import importlib
 from config import BRAND_COLORS
 import config as config_module 
 
-#==============================================================
-# --- MODIFICATION: Rewritten to avoid f-string syntax error ---
-#==============================================================
 def generate_regex_from_sample(sample: str) -> str:
     """
     Analyzes a sample string and generates a precise regex pattern by keeping
@@ -26,11 +27,8 @@ def generate_regex_from_sample(sample: str) -> str:
     # with the regex token for one or more digits, `\d+`.
     pattern_with_digit_wildcard = re.sub(r'\d+', r'\\d+', escaped_sample)
     
-    # Step 3: Construct the final pattern. This is now safe.
+    # Step 3: Construct the final pattern with word boundaries
     return f"\\b{pattern_with_digit_wildcard}\\b"
-#==============================================================
-# --- END OF MODIFICATION ---
-#==============================================================
 
 
 class ReviewWindow(tk.Toplevel):
@@ -139,7 +137,9 @@ class ReviewWindow(tk.Toplevel):
             except (ImportError, SyntaxError):
                 pass
 
-            file_content = "# custom_patterns.py\n# This file stores user-defined regex patterns.\n"
+            file_content = "# custom_patterns.py\n# Version: 25.1.0\n# Last modified: " + \
+                           f"{Path(__file__).stat().st_mtime:%Y-%m-%d}\n" + \
+                           "# This file stores user-defined regex patterns.\n"
             
             for name, patterns in all_lists_to_save.items():
                 file_content += f"\n{name} = [\n"
