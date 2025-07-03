@@ -1,50 +1,42 @@
 # config.py
 from pathlib import Path
 
-# --- DIRECTORY CONFIGURATION ---
+# Application directories
 BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR / "output"
-LOGS_DIR = BASE_DIR / "logs"
-# Directory containing PDFs that need manual review
-NEED_REVIEW_DIR = BASE_DIR / "NEED_REVIEW"
-# Directory for PDFs where OCR or translation completely failed
-OCR_FAILED_DIR = BASE_DIR / "OCR_FAILED"
-PDF_TXT_DIR = NEED_REVIEW_DIR  # backward compatibility
-CACHE_DIR = BASE_DIR / ".cache"
-ASSETS_DIR = BASE_DIR / "assets" # For icons
+PDF_TXT_DIR = BASE_DIR / "review_files"
 
-# --- BRANDING AND UI ---
+# Column name for models/metadata in Excel sheet
+# This is the column where model information will be stored
+# Change this to match an existing column name in your Excel file
+# Common options: "Models", "Applicable Models", "Device Models", "Metadata"
+META_COLUMN_NAME = "Models"  # Changed from "Applicable Models/Metadata"
+
+# Brand colors
 BRAND_COLORS = {
-    "kyocera_red": "#DA291C",
-    "kyocera_black": "#231F20",
-    "background": "#F0F2F5",
-    "frame_background": "#FFFFFF",
-    "header_text": "#000000",
-    "accent_blue": "#0078D4",
-    "success_green": "#107C10",
-    "warning_orange": "#FFA500",
-    "fail_red": "#DA291C",
-    "highlight_blue": "#0078D4",
-    # Status bar background colors
-    "status_default_bg": "#F8F8F8",
-    "status_processing_bg": "#DDEEFF",
-    "status_ocr_bg": "#E6F7FF",
-    "status_ai_bg": "#F9F0FF",
+    # Primary colors
+    "background": "#F9F9F9",
+    "frame_background": "#F2F2F2",
+    "kyocera_red": "#CC0033",
+    "kyocera_black": "#333333",
+    
+    # Text colors
+    "header_text": "#FFFFFF",
+    "body_text": "#444444",
+    
+    # Accent colors
+    "accent_blue": "#0078D7",
+    "accent_grey": "#999999",
+    
+    # Status colors
+    "success_green": "#28A745",
+    "warning_yellow": "#FFC107",
+    "error_red": "#DC3545",
 }
 
-# --- DATA PROCESSING RULES ---
-EXCLUSION_PATTERNS = ["CVE-", "CWE-", "TK-"]
-MODEL_PATTERNS = [
-    r'\bTASKalfa\s*[\w-]+\b',
-    r'\bECOSYS\s*[\w-]+\b',
-    r'\b(PF|DF|MK|AK|DP|BF|JS)-\d+[\w-]*\b',
-]
-QA_NUMBER_PATTERNS = [r'\bQA[-_]?[\w-]+', r'\bSB[-_]?[\w-]+']
-UNWANTED_AUTHORS = ["Knowledge Import"]
-STANDARDIZATION_RULES = {"TASKalfa-": "TASKalfa ", "ECOSYS-": "ECOSYS "}
-
-# --- EXCEL MAPPING ---
-META_COLUMN_NAME = "Meta"
-AUTHOR_COLUMN_NAME = "Author"
-DESCRIPTION_COLUMN_NAME = "Short description"
-STATUS_COLUMN_NAME = "Processing Status"
+# Default processing options
+DEFAULT_OPTIONS = {
+    "use_ocr": True,
+    "auto_open_result": True,
+    "cleanup_temp": True,
+}

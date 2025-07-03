@@ -1,34 +1,23 @@
 # ocr_utils.py
-# Version: 26.0.0
-# Last modified: 2025-07-03
-# Utilities for extracting text from PDFs, including OCR for image-based documents
-
-import fitz  # PyMuPDF
+# KYO QA ServiceNow OCR Utilities - Fixed for PyMuPDF compatibility
+import fitz # PyMuPDF
 import os
 from pathlib import Path
 from logging_utils import setup_logger, log_info, log_error, log_warning
-import pytesseract
-try:
-    from PIL import Image
-except Exception:
-    Image = None
-import io
-import cv2
-import numpy as np
-from functools import lru_cache
-from custom_exceptions import PDFExtractionError
 
 logger = setup_logger("ocr_utils")
 
 def init_tesseract():
     """Initialize Tesseract OCR if available."""
     try:
+        import pytesseract
+
         portable_path = Path(__file__).parent / "tesseract" / "tesseract.exe"
         if portable_path.exists():
             pytesseract.pytesseract.tesseract_cmd = str(portable_path)
             log_info(logger, f"Portable Tesseract found at: {portable_path}")
             return True
-        
+
         tesseract_paths = [
             r"C:\Program Files\Tesseract-OCR\tesseract.exe",
             r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
@@ -38,15 +27,16 @@ def init_tesseract():
                 pytesseract.pytesseract.tesseract_cmd = path
                 log_info(logger, f"Tesseract found at: {path}")
                 return True
-        
+
         try:
+            # Check if tesseract is in the system's PATH
             output = os.popen("tesseract --version").read()
             if "tesseract" in output.lower():
                 log_info(logger, "Tesseract found in system PATH")
                 return True
         except Exception:
-            pass
-            
+            pass # Ignore errors if the command fails
+
         log_warning(logger, "Tesseract OCR not found. Image-based OCR will be disabled.")
         return False
     except ImportError:
@@ -58,187 +48,82 @@ def init_tesseract():
 
 TESSERACT_AVAILABLE = init_tesseract()
 
-def _open_pdf(pdf_path, password=None):
-    """
-    Opens a PDF file with error handling.
-    Returns a fitz.Document object or raises an exception.
-    """
-    try:
-        # Use the simpler fitz.open() without password parameter
-        doc = fitz.open(pdf_path)
-        return doc
-    except Exception as e:
-        log_error(logger, f"Cannot open PDF {Path(pdf_path).name}: {e}")
-        raise PDFExtractionError(f"Failed to open PDF: {e}")
-
-def _is_ocr_needed(pdf_path):
+def _is_ocr_needed(pdf_path: Path | str) -> bool:
     """
     Pre-checks a PDF to see if it's image-based and likely requires OCR.
-    Returns True if OCR is needed, False otherwise.
+    It does this by checking the amount of extractable text.
     """
     try:
-        doc = _open_pdf(pdf_path)
-        try:
+        # FIXED: Use simple fitz.open() without password parameter
+        with fitz.open(str(pdf_path)) as doc:
             if not doc.is_pdf:
                 return False
-            
-            # Check the total text length of the document
-            text_length = 0
-            for page in doc:
-                try:
-                    text_length += len(page.get_text("text"))
-                    if text_length > 150:  # Early exit if we have enough text
-                        break
-                except Exception:
-                    continue
-            
-            doc.close()
-            return text_length < 150  # Threshold can be adjusted
-        except Exception:
-            doc.close()
-            return True
-    except PDFExtractionError as e:
-        log_warning(logger, f"Could not pre-check PDF {Path(pdf_path).name} for OCR needs: {e}")
-        return True  # Default to True if we can't check
-    except Exception as e:
-        log_warning(logger, f"Error during OCR check for {Path(pdf_path).name}: {e}")
-        return True  # Default to True if any error occurs
 
-def extract_text_from_pdf(pdf_path):
-    """
-    Extract text from a PDF file, using OCR if needed.
-    
-    Args:
-        pdf_path: Path to the PDF file
-        
-    Returns:
-        str: Extracted text content or empty string if extraction fails
-    """
+            # Check the total text length of the document.
+            # If it's very short, it's likely an image-based PDF.
+            text_length = sum(len(page.get_text("text")) for page in doc)
+            if text_length < 150: # This threshold can be adjusted
+                return True
+    except Exception as e:
+        log_warning(logger, f"Could not pre-check PDF {Path(pdf_path).name} for OCR needs: {e}")
+        # If any error occurs, default to assuming OCR might be needed.
+        return True
+    return False
+
+def extract_text_from_pdf(pdf_path: Path | str) -> str:
+    """Extract text from a PDF file, using OCR if needed."""
     try:
         pdf_path = Path(pdf_path)
-        
-        # Setup cache for faster processing of previously seen files
-        cache_dir = Path(__file__).parent / ".text_cache"
-        cache_dir.mkdir(exist_ok=True)
-        
-        try:
-            # Generate a unique cache key based on path and modification time
-            cache_key = f"{pdf_path.stem}_{pdf_path.stat().st_mtime}"
-            cache_file = cache_dir / f"{cache_key}.txt"
-            
-            # Check for cached text
-            if cache_file.exists():
-                with open(cache_file, 'r', encoding='utf-8') as f:
-                    cached_text = f.read()
-                if cached_text and len(cached_text.strip()) > 50:
-                    log_info(logger, f"Retrieved text from cache for {pdf_path.name}")
-                    return cached_text
-        except Exception:
-            # Ignore cache read errors and proceed with regular extraction
-            pass
-                
-        # Proceed with regular extraction
         text = ""
-        doc = _open_pdf(pdf_path)
-        try:
-            page_count = len(doc)
-            
-            # Process pages sequentially for better reliability
-            for page in doc:
-                try:
-                    page_text = page.get_text()
-                    text += page_text
-                except Exception as e:
-                    log_warning(logger, f"Error extracting text from page in {pdf_path.name}: {e}")
-                    continue
-                    
-        finally:
-            doc.close()
+        
+        # FIXED: Use simple fitz.open() without password parameter
+        with fitz.open(str(pdf_path)) as doc:
+            text = "".join(page.get_text() for page in doc)
 
-        # If text is found and OCR is not explicitly needed, cache it and return
+        # If text is found and OCR is not explicitly needed, return it.
         if text and len(text.strip()) > 50:
-            try:
-                with open(cache_file, 'w', encoding='utf-8') as f:
-                    f.write(text)
-            except Exception:
-                # Ignore cache write errors
-                pass
-                
             log_info(logger, f"Extracted text directly from {pdf_path.name}")
             return text
 
-        # If no text was found or it's very short, attempt OCR if available
+        # If no text was found, or it's very short, attempt OCR if available.
         if TESSERACT_AVAILABLE:
             log_info(logger, f"Attempting OCR on {pdf_path.name}")
-            ocr_text = extract_text_with_ocr(pdf_path)
-            
-            # Cache the OCR result
-            if ocr_text:
-                try:
-                    with open(cache_file, 'w', encoding='utf-8') as f:
-                        f.write(ocr_text)
-                except Exception:
-                    # Ignore cache write errors
-                    pass
-                    
-            return ocr_text
+            return extract_text_with_ocr(pdf_path)
         else:
             log_warning(logger, f"No text found in {pdf_path.name} and OCR is not available.")
-            return ""  # Return empty string if no text and no OCR
+            return "" # Return empty string if no text and no OCR
     except Exception as exc:
         log_error(logger, f"Failed to extract text from {pdf_path.name}: {exc}")
         return ""
 
-def extract_text_with_ocr(pdf_path):
-    """
-    Extract text from a PDF using pre-processing and OCR.
-    
-    Args:
-        pdf_path: Path to the PDF file
-        
-    Returns:
-        str: OCR-extracted text or empty string if OCR fails
-    """
+def extract_text_with_ocr(pdf_path: Path | str) -> str:
+    """Extract text from a PDF using OCR on its rendered images."""
     if not TESSERACT_AVAILABLE:
         log_warning(logger, "Tesseract OCR not available, cannot perform OCR.")
         return ""
-        
-    all_text = []
+
     try:
-        doc = _open_pdf(pdf_path)
-        try:
+        import pytesseract
+        from PIL import Image
+        import io
+
+        all_text = []
+        # FIXED: Use simple fitz.open() without password parameter
+        with fitz.open(str(pdf_path)) as doc:
             for page_num, page in enumerate(doc):
                 try:
-                    # 1. Render page at a higher DPI for better quality
+                    # Render the page at a higher resolution for better OCR accuracy
                     pix = page.get_pixmap(dpi=300)
-                    img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
-                    
-                    # 2. Convert to OpenCV format (from RGB to BGR)
-                    img_cv = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
+                    img = Image.open(io.BytesIO(pix.tobytes("png")))
 
-                    # 3. Pre-process the image for better OCR accuracy
-                    # Convert to grayscale
-                    gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-                    # Apply adaptive thresholding to get a clean black and white image
-                    binary_img = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-                    
-                    # Additional preprocessing for better OCR results
-                    # Remove noise using median blur
-                    processed_img = cv2.medianBlur(binary_img, 3)
-                    
-                    # 4. Use Tesseract to do OCR on the processed image
-                    custom_config = r'--oem 3 --psm 6'
-                    page_text = pytesseract.image_to_string(processed_img, lang='eng', config=custom_config)
-                    
+                    # Use Tesseract to do OCR on the image
+                    page_text = pytesseract.image_to_string(img)
                     all_text.append(page_text)
                     log_info(logger, f"OCR processed page {page_num+1} of {pdf_path.name}")
                 except Exception as e:
                     log_warning(logger, f"OCR failed for page {page_num+1} in {pdf_path.name}: {e}")
                     continue
-                    
-        finally:
-            doc.close()
-            
+
         result = "\n\n".join(all_text)
         log_info(logger, f"OCR extraction complete for {pdf_path.name}: {len(result)} chars")
         return result
@@ -246,23 +131,13 @@ def extract_text_with_ocr(pdf_path):
         log_error(logger, f"OCR extraction failed for {pdf_path.name}: {e}")
         return ""
 
-def get_pdf_metadata(pdf_path):
-    """
-    Extract metadata from a PDF file.
-    
-    Args:
-        pdf_path: Path to the PDF file
-        
-    Returns:
-        dict: Dictionary containing PDF metadata
-    """
+def get_pdf_metadata(pdf_path: Path | str) -> dict:
+    """Extract metadata from a PDF file."""
     try:
-        doc = _open_pdf(pdf_path)
-        try:
+        # FIXED: Use simple fitz.open() without password parameter
+        with fitz.open(str(pdf_path)) as doc:
             metadata = doc.metadata
             page_count = len(doc)
-        finally:
-            doc.close()
 
         result = {
             "title": metadata.get("title", ""),
@@ -276,8 +151,8 @@ def get_pdf_metadata(pdf_path):
             "page_count": page_count
         }
 
-        log_info(logger, f"Extracted metadata from {Path(pdf_path).name}")
+        log_info(logger, f"Extracted metadata from {pdf_path.name}")
         return result
     except Exception as e:
-        log_error(logger, f"Failed to extract metadata from {Path(pdf_path).name}: {e}")
+        log_error(logger, f"Failed to extract metadata from {pdf_path.name}: {e}")
         return {}

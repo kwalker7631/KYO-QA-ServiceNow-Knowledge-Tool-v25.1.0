@@ -1,632 +1,393 @@
 # kyo_qa_tool_app.py
-# Version: 26.0.0
-# Last modified: 2025-07-03
-# Main GUI application for the KYO QA Tool with full processing functionality
-
-import json
-import threading
-import time
-from pathlib import Path
-from queue import Queue, Empty
+# Fixed version based on original v24.0.6 structure
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import subprocess
-import sys
-import os
+from tkinter import filedialog, messagebox, ttk
+from pathlib import Path
+import threading
+import queue
+import time
 
-from config import (
-    BRAND_COLORS,
-    PDF_TXT_DIR,
-    NEED_REVIEW_DIR,
-    CACHE_DIR,
-    ASSETS_DIR,
-    OUTPUT_DIR,
-)
-from gui_components import (
-    create_main_header,
-    create_io_section,
-    create_process_controls,
-    create_status_and_log_section,
-)
-from version import get_version
-from logging_utils import setup_logger, log_info, log_warning, log_error
-from file_utils import ensure_folders
+from config import BRAND_COLORS
+from processing_engine import run_processing_job
+from file_utils import open_file, ensure_folders, cleanup_temp_files
 from kyo_review_tool import ReviewWindow
+from version import VERSION
+import logging_utils
 
-__all__ = ["KyoQAToolApp", "TextRedirector"]
+logger = logging_utils.setup_logger("app")
 
-
-# ---------------------------------------------------------------------------
-# Helper classes
-# ---------------------------------------------------------------------------
-class TextRedirector:
-    """Simple file-like object that redirects written text to a queue."""
-
-    def __init__(self, queue: Queue):
-        self.queue = queue
-
-    def write(self, text: str) -> None:
-        if text:
-            self.queue.put(text)
-
-    def flush(self) -> None:
-        pass
-
-
-# ---------------------------------------------------------------------------
-# Basic icon utilities used by the application.
-# ---------------------------------------------------------------------------
-
-ICON_MAP = {
-    "start": "start.png",
-    "pause": "pause.png", 
-    "stop": "stop.png",
-    "rerun": "rerun.png",
-    "open": "open.png",
-    "browse": "browse.png",
-    "patterns": "patterns.png",
-    "exit": "exit.png",
-    "fullscreen": "fullscreen.png",
-}
-
-
-def load_icon(name: str) -> tk.PhotoImage | None:
-    path = ASSETS_DIR / name
-    try:
-        return tk.PhotoImage(file=path) if path.exists() else None
-    except Exception:
-        return None
-
-
-def get_text_icon(key: str) -> str:
-    """Return a small unicode fallback for a given icon key."""
-    fallbacks = {
-        "start": "▶",
-        "pause": "❚❚", 
-        "stop": "■",
-        "rerun": "↺",
-        "open": "⌗",
-        "browse": "…",
-        "patterns": "⧉",
-        "exit": "✖",
-        "fullscreen": "⛶",
-    }
-    return fallbacks.get(key, "")
-
-
-def create_default_icons() -> bool:
-    """Ensure the assets folder exists. Return True if any png files exist."""
-    ASSETS_DIR.mkdir(exist_ok=True)
-    return any((ASSETS_DIR / fname).exists() for fname in ICON_MAP.values())
-
-
-# ---------------------------------------------------------------------------
-# Application class
-# ---------------------------------------------------------------------------
 class KyoQAToolApp(tk.Tk):
-    """Main GUI application for the KYO QA Tool."""
-
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
-        self.title("KYO QA Knowledge Tool")
-        self.geometry("1000x700")
-        self.configure(bg=BRAND_COLORS["background"])
-
-        # --- Processing state variables ---
-        self.processing = False
-        self.paused = False
-        self.progress_queue = Queue()
-        self.cancel_event = threading.Event()
-        self.pause_event = threading.Event()
-        self.worker_thread = None
+        # --- App State ---
+        self.is_processing = False
         self.result_file_path = None
+        self.reviewable_files = []
+        self.start_time = None
         self.last_run_info = {}
 
-        # --- UI Variables ---
-        self.selected_excel = tk.StringVar()
+        # --- Communication Queues & UI Vars ---
+        self.response_queue = queue.Queue()
+        self.cancel_event = threading.Event()
         self.selected_folder = tk.StringVar()
-        self.selected_files = []
-        self.progress_value = tk.DoubleVar(value=0.0)
-        self.status_current_file = tk.StringVar(value="Ready")
+        self.selected_excel = tk.StringVar()
+        self.selected_files_list = []
+        self.status_current_file = tk.StringVar(value="Idle")
+        self.progress_value = tk.DoubleVar(value=0)
         self.time_remaining_var = tk.StringVar(value="")
-        self.led_status_var = tk.StringVar(value="● Idle")
+        
+        # --- Counters for the summary ---
         self.count_pass = tk.IntVar(value=0)
         self.count_fail = tk.IntVar(value=0)
         self.count_review = tk.IntVar(value=0)
         self.count_ocr = tk.IntVar(value=0)
+        self.led_status_var = tk.StringVar(value="[Idle]")
 
-        # --- Progress tracking ---
-        self.start_time = None
-        self.current_file_index = 0
-        self.total_files = 0
-
-        # --- Setup logging ---
-        self.log_queue: Queue[str] = Queue()
-        self.logger = setup_logger("app", log_widget=None)
-
-        # --- Create required directories ---
+        # --- Setup ---
+        self._setup_window()
+        self._setup_styles()
+        self._create_widgets()
         ensure_folders()
+        self.after(100, self.process_response_queue)
 
-        # --- Load icons with graceful fallback ---
-        try:
-            icons_available = create_default_icons()
-            for key, filename in ICON_MAP.items():
-                setattr(self, f"{key}_icon", load_icon(filename) if icons_available else None)
-        except Exception:
-            for key in ICON_MAP:
-                setattr(self, f"{key}_icon", None)
-
-        # --- Configure styles ---
-        self._configure_styles()
-
-        # --- Build UI ---
-        container = ttk.Frame(self, padding=10)
-        container.pack(fill="both", expand=True)
-        container.columnconfigure(0, weight=1)
-        container.rowconfigure(2, weight=1)
-
-        create_main_header(container, get_version(), BRAND_COLORS)
-        create_io_section(container, self)
-        create_process_controls(container, self)
-        create_status_and_log_section(container, self)
-
-        # --- Start progress queue monitor ---
-        self.after(100, self.process_progress_queue)
-
-        # --- Handle window close ---
+    def _setup_window(self):
+        self.title(f"Kyocera QA ServiceNow Knowledge Tool v{VERSION}")
+        self.geometry("1100x800")
+        self.minsize(950, 700)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.configure(bg=BRAND_COLORS["background"])
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
 
-        log_info(self.logger, "KYO QA Tool initialized successfully")
-
-    def _configure_styles(self):
-        """Configure custom styles for the application."""
-        style = ttk.Style()
+    def _setup_styles(self):
+        style = ttk.Style(self)
         style.theme_use("clam")
+        style.configure("TFrame", background=BRAND_COLORS["background"])
+        style.configure("TLabel", background=BRAND_COLORS["background"], foreground=BRAND_COLORS["kyocera_black"], font=("Segoe UI", 10))
+        style.configure("Header.TFrame", background=BRAND_COLORS["background"])
+        style.configure("Header.TLabel", background=BRAND_COLORS["background"], foreground=BRAND_COLORS["header_text"], font=("Segoe UI", 16, "bold"))
+        style.configure("KyoceraLogo.TLabel", background=BRAND_COLORS["background"], foreground=BRAND_COLORS["kyocera_red"], font=("Arial Black", 22))
+        style.configure("TButton", background=BRAND_COLORS["kyocera_black"], foreground="white", font=("Segoe UI", 10, "bold"), padding=5)
+        style.map("TButton", background=[("active", BRAND_COLORS["kyocera_red"])])
+        style.configure("Red.TButton", background=BRAND_COLORS["kyocera_red"], foreground="white")
+        style.map("Red.TButton", background=[("active", "#B81525")])
+        style.configure("Status.TLabel", font=("Segoe UI", 9), background=BRAND_COLORS["frame_background"])
+        style.configure("Status.Header.TLabel", font=("Segoe UI", 9, "bold"), background=BRAND_COLORS["frame_background"])
+        style.configure("Dark.TFrame", background=BRAND_COLORS["frame_background"])
+        style.configure("Blue.Horizontal.TProgressbar", troughcolor=BRAND_COLORS["frame_background"], background=BRAND_COLORS["accent_blue"], borderwidth=0)
+        # Styles for the LED status indicator
+        style.configure("LED.TLabel", font=("Segoe UI", 9, "bold"))
+        style.configure("LEDRed.TLabel", foreground=BRAND_COLORS["kyocera_red"])
+        style.configure("LEDYellow.TLabel", foreground=BRAND_COLORS["warning_yellow"])
+        style.configure("LEDGreen.TLabel", foreground=BRAND_COLORS["success_green"])
+        style.configure("LEDBlue.TLabel", foreground=BRAND_COLORS["accent_blue"])
+
+    def _create_widgets(self):
+        header_frame = ttk.Frame(self, style="Header.TFrame", padding=(10, 10))
+        header_frame.grid(row=0, column=0, sticky="ew")
+        separator = ttk.Separator(header_frame, orient='horizontal')
+        separator.pack(side="bottom", fill="x")
+        ttk.Label(header_frame, text="KYOCERA", style="KyoceraLogo.TLabel").pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Label(header_frame, text="QA ServiceNow Knowledge Tool", style="Header.TLabel").pack(side=tk.LEFT, padx=(15, 0))
         
-        # Configure button styles
-        style.configure("Red.TButton", foreground="white", background=BRAND_COLORS["kyocera_red"])
-        style.map("Red.TButton", background=[("active", "#c41e3a")])
+        main_frame = ttk.Frame(self, padding=15)
+        main_frame.grid(row=1, column=0, sticky="nsew")
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.rowconfigure(2, weight=1)
         
-        # Configure LED status style
-        style.configure("LED.TLabel", foreground=BRAND_COLORS["success_green"], font=("Consolas", 10, "bold"))
+        self._create_io_section(main_frame)
+        self._create_process_controls(main_frame)
+        self._create_status_and_log_section(main_frame)
+
+    def _create_io_section(self, parent):
+        io_frame = ttk.LabelFrame(parent, text="1. Select Inputs", padding=10)
+        io_frame.grid(row=0, column=0, sticky="ew", pady=5)
+        io_frame.columnconfigure(1, weight=1)
         
-        # Configure status label styles
-        style.configure("Status.TLabel", font=("Segoe UI", 9))
-        style.configure("Status.Header.TLabel", font=("Segoe UI", 9, "bold"))
+        ttk.Label(io_frame, text="Excel File to Clone:").grid(row=0, column=0, sticky="w", pady=5, padx=5)
+        ttk.Entry(io_frame, textvariable=self.selected_excel, width=80).grid(row=0, column=1, sticky="ew", padx=5)
+        ttk.Button(io_frame, text="Browse...", command=self.browse_excel).grid(row=0, column=2, padx=5)
         
-        # Configure count label styles
-        for color in ["Green", "Red", "Orange", "Blue"]:
-            color_value = BRAND_COLORS.get(f"count_{color.lower()}", BRAND_COLORS["header_text"])
-            style.configure(f"Count.{color}.TLabel", foreground=color_value, font=("Segoe UI", 10, "bold"))
-
-    # ------------------------------------------------------------------
-    # File selection methods
-    # ------------------------------------------------------------------
-    def browse_excel(self) -> None:
-        """Browse for Excel template file."""
-        file_path = filedialog.askopenfilename(
-            title="Select Excel Template",
-            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
-        )
-        if file_path:
-            self.selected_excel.set(file_path)
-            log_info(self.logger, f"Selected Excel file: {Path(file_path).name}")
-
-    def browse_folder(self) -> None:
-        """Browse for folder containing PDF files."""
-        folder_path = filedialog.askdirectory(title="Select Folder with PDF Files")
-        if folder_path:
-            self.selected_folder.set(folder_path)
-            self.selected_files = []  # Clear individual file selection
-            
-            # Count PDF files in folder
-            pdf_count = len(list(Path(folder_path).glob("*.pdf")))
-            log_info(self.logger, f"Selected folder: {Path(folder_path).name} ({pdf_count} PDFs)")
-
-    def browse_files(self) -> None:
-        """Browse for individual PDF files."""
-        file_paths = filedialog.askopenfilenames(
-            title="Select PDF Files",
-            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
-        )
-        if file_paths:
-            self.selected_files = list(file_paths)
-            self.selected_folder.set("")  # Clear folder selection
-            log_info(self.logger, f"Selected {len(file_paths)} individual PDF files")
-
-    # ------------------------------------------------------------------
-    # Processing control methods
-    # ------------------------------------------------------------------
-    def start_processing(self) -> None:
-        """Start the PDF processing job."""
-        if self.processing:
-            return
-
-        # Validate inputs
-        if not self.selected_excel.get():
-            messagebox.showerror("Input Required", "Please select an Excel file.")
-            return
-
-        if not self.selected_folder.get() and not self.selected_files:
-            messagebox.showerror("Input Required", "Please select a folder or PDF files to process.")
-            return
-
-        if not Path(self.selected_excel.get()).exists():
-            messagebox.showerror("File Not Found", "The selected Excel file does not exist.")
-            return
-
-        # Prepare job info
-        job_info = {
-            "excel_path": self.selected_excel.get(),
-            "input_path": self.selected_folder.get() if self.selected_folder.get() else self.selected_files,
-            "is_rerun": False
-        }
-
-        self._start_worker_thread(job_info)
-
-    def toggle_pause(self) -> None:
-        """Toggle pause/resume of processing."""
-        if not self.processing:
-            return
-
-        self.paused = not self.paused
-        if self.paused:
-            self.pause_event.set()
-            self.pause_btn.config(text=" Resume", image=self.start_icon)
-            self.led_status_var.set("● Paused")
-            log_info(self.logger, "Processing paused")
-        else:
-            self.pause_event.clear()
-            self.pause_btn.config(text=" Pause", image=self.pause_icon)
-            self.led_status_var.set("● Processing")
-            log_info(self.logger, "Processing resumed")
-
-    def stop_processing(self) -> None:
-        """Stop the current processing job."""
-        if not self.processing:
-            return
-
-        if messagebox.askyesno("Stop Processing", "Are you sure you want to stop processing?"):
-            self.cancel_event.set()
-            self.led_status_var.set("● Stopping...")
-            log_info(self.logger, "Processing stop requested")
-
-    def rerun_flagged_job(self) -> None:
-        """Re-run processing on files that were flagged for review."""
-        if self.processing:
-            messagebox.showwarning("Processing Active", "Please wait for current processing to complete.")
-            return
-
-        if not self.last_run_info:
-            messagebox.showinfo("No Previous Run", "No previous run data available for re-processing.")
-            return
-
-        # Collect review PDFs
-        review_pdfs = self._collect_review_pdfs()
-        if not review_pdfs:
-            messagebox.showinfo("No Files", "No files found that need review.")
-            return
-
-        result = messagebox.askyesno(
-            "Re-run Flagged Files",
-            f"Re-run processing on {len(review_pdfs)} files that were flagged for review?\n\n"
-            "This will use any updated custom patterns."
-        )
-
-        if result:
-            job_info = {
-                "excel_path": self.last_run_info.get("result_path", ""),
-                "input_path": review_pdfs,
-                "is_rerun": True
-            }
-            self._start_worker_thread(job_info)
-
-    def _start_worker_thread(self, job_info):
-        """Start the background processing thread."""
-        self.processing = True
-        self.paused = False
-        self.cancel_event.clear()
-        self.pause_event.clear()
-        self.start_time = time.time()
+        ttk.Label(io_frame, text="Process Folder:").grid(row=1, column=0, sticky="w", pady=5, padx=5)
+        ttk.Entry(io_frame, textvariable=self.selected_folder, width=80).grid(row=1, column=1, sticky="ew", padx=5)
+        ttk.Button(io_frame, text="Browse...", command=self.browse_folder).grid(row=1, column=2, padx=5)
         
-        # Reset counters
-        self.count_pass.set(0)
-        self.count_fail.set(0)
-        self.count_review.set(0)
-        self.count_ocr.set(0)
-        self.progress_value.set(0)
-        
-        # Update UI state
-        self._set_processing_ui_state(True)
-        
-        # Clear review tree
-        for item in self.review_tree.get_children():
-            self.review_tree.delete(item)
-            
-        # Start worker thread
-        from processing_engine import run_processing_job
-        self.worker_thread = threading.Thread(
-            target=run_processing_job,
-            args=(job_info, self.progress_queue, self.cancel_event, self.pause_event),
-            daemon=True
-        )
-        self.worker_thread.start()
-        
-        log_info(self.logger, f"Started processing job: {job_info}")
+        ttk.Label(io_frame, text="Or Select PDFs:").grid(row=2, column=0, sticky="w", pady=5, padx=5)
+        self.files_label = ttk.Label(io_frame, text="0 files selected")
+        self.files_label.grid(row=2, column=1, sticky="w", padx=5)
+        ttk.Button(io_frame, text="Select...", command=self.browse_files).grid(row=2, column=2, padx=5)
 
-    def _set_processing_ui_state(self, processing: bool):
-        """Update UI elements based on processing state."""
-        if processing:
-            self.process_btn.config(state="disabled")
-            self.pause_btn.config(state="normal")
-            self.stop_btn.config(state="normal")
-            self.rerun_btn.config(state="disabled")
-            self.led_status_var.set("● Processing")
-        else:
-            self.process_btn.config(state="normal")
-            self.pause_btn.config(state="disabled", text=" Pause", image=self.pause_icon)
-            self.stop_btn.config(state="disabled")
-            self.rerun_btn.config(state="normal")
-            self.open_result_btn.config(state="normal" if self.result_file_path else "disabled")
-            self.led_status_var.set("● Idle")
+    def _create_process_controls(self, parent):
+        controls_frame = ttk.LabelFrame(parent, text="2. Process & Manage", padding=10)
+        controls_frame.grid(row=1, column=0, sticky="ew", pady=5)
+        controls_frame.columnconfigure(0, weight=2)
+        
+        self.process_btn = ttk.Button(controls_frame, text="▶ START PROCESSING", command=self.start_processing, style="Red.TButton", padding=(10,8))
+        self.process_btn.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        
+        self.rerun_btn = ttk.Button(controls_frame, text="🔄 Re-run Last Process", command=self.rerun_last_job, state=tk.DISABLED)
+        self.rerun_btn.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        
+        self.open_result_btn = ttk.Button(controls_frame, text="📂 Open Result", command=self.open_result, state=tk.DISABLED)
+        self.open_result_btn.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
 
-    # ------------------------------------------------------------------
-    # Progress monitoring
-    # ------------------------------------------------------------------
-    def process_progress_queue(self):
-        """Process messages from the progress queue."""
+        self.review_btn = ttk.Button(controls_frame, text="⚙️ Pattern Manager", command=self.open_pattern_manager)
+        self.review_btn.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+
+        self.exit_btn = ttk.Button(controls_frame, text="❌ Exit", command=self.on_closing)
+        self.exit_btn.grid(row=0, column=4, padx=15, pady=5, sticky="e")
+
+    def _create_status_and_log_section(self, parent):
+        container = ttk.LabelFrame(parent, text="3. Live Status & Activity Log", padding=10)
+        container.grid(row=2, column=0, sticky="nsew", pady=5)
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(3, weight=1)
+
+        status_frame = ttk.Frame(container, style="Dark.TFrame", padding=10)
+        status_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+        status_frame.columnconfigure(2, weight=1)
+
+        ttk.Label(status_frame, text="Current File:", style="Status.Header.TLabel").grid(row=0, column=0, sticky="w", padx=5)
+        
+        self.led_label = ttk.Label(status_frame, textvariable=self.led_status_var, style="LED.TLabel", anchor="w")
+        self.led_label.grid(row=0, column=1, sticky="w", padx=5)
+        
+        ttk.Label(status_frame, textvariable=self.status_current_file, style="Status.TLabel", anchor="w").grid(row=0, column=2, sticky="ew", padx=5)
+
+        ttk.Label(status_frame, text="Overall Progress:", style="Status.Header.TLabel").grid(row=1, column=0, sticky="w", padx=5)
+        self.progress_bar = ttk.Progressbar(status_frame, orient='horizontal', mode='determinate', variable=self.progress_value, style="Blue.Horizontal.TProgressbar")
+        self.progress_bar.grid(row=1, column=1, columnspan=2, sticky="ew", padx=5, pady=(10,5))
+        ttk.Label(status_frame, textvariable=self.time_remaining_var, style="Status.TLabel", anchor="e").grid(row=1, column=3, sticky="e", padx=10)
+        
+        # Summary Counts Frame
+        summary_frame = ttk.Frame(container, style="Dark.TFrame", padding=10)
+        summary_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=(5,0))
+        
+        ttk.Label(summary_frame, text="Pass:", style="Status.Header.TLabel").pack(side="left", padx=(10,2))
+        ttk.Label(summary_frame, textvariable=self.count_pass, style="Status.TLabel", foreground=BRAND_COLORS["success_green"]).pack(side="left", padx=(0,10))
+        ttk.Label(summary_frame, text="Fail:", style="Status.Header.TLabel").pack(side="left", padx=(10,2))
+        ttk.Label(summary_frame, textvariable=self.count_fail, style="Status.TLabel", foreground=BRAND_COLORS["kyocera_red"]).pack(side="left", padx=(0,10))
+        ttk.Label(summary_frame, text="Needs Review:", style="Status.Header.TLabel").pack(side="left", padx=(10,2))
+        ttk.Label(summary_frame, textvariable=self.count_review, style="Status.TLabel", foreground=BRAND_COLORS["warning_yellow"]).pack(side="left", padx=(0,10))
+        ttk.Label(summary_frame, text="OCR Used:", style="Status.Header.TLabel").pack(side="left", padx=(10,2))
+        ttk.Label(summary_frame, textvariable=self.count_ocr, style="Status.TLabel", foreground=BRAND_COLORS["accent_blue"]).pack(side="left", padx=(0,10))
+        
+        review_frame = ttk.Frame(container, style="Dark.TFrame", padding=(5, 10))
+        review_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=(5,0))
+        review_frame.columnconfigure(0, weight=1)
+        ttk.Label(review_frame, text="Files Flagged for Review:", style="Status.Header.TLabel").pack(anchor="w")
+        self.review_tree = ttk.Treeview(review_frame, columns=('filename', 'reason'), show='headings', height=3)
+        self.review_tree.heading('filename', text='File Name')
+        self.review_tree.heading('reason', text='Reason')
+        self.review_tree.column('filename', width=400)
+        self.review_tree.pack(side="left", fill="x", expand=True, pady=(5,0))
+        review_scrollbar = ttk.Scrollbar(review_frame, orient="vertical", command=self.review_tree.yview)
+        review_scrollbar.pack(side="right", fill="y", pady=(5,0))
+        self.review_tree.configure(yscrollcommand=review_scrollbar.set)
+        
+        self.log_text = tk.Text(container, height=8, wrap=tk.WORD, state=tk.DISABLED, bg="white", relief="solid", borderwidth=1, font=("Consolas", 9))
+        self.log_text.grid(row=3, column=0, sticky="nsew", padx=5, pady=5)
+        log_scrollbar = ttk.Scrollbar(container, command=self.log_text.yview)
+        log_scrollbar.grid(row=3, column=1, sticky="ns")
+        self.log_text.config(yscrollcommand=log_scrollbar.set)
+        
+        for tag, color_key in [("info", "accent_blue"), ("success", "success_green"), ("warning", "warning_yellow"), ("error", "kyocera_red")]:
+            self.log_text.tag_configure(tag, foreground=BRAND_COLORS[color_key])
+
+    def process_response_queue(self):
         try:
             while True:
-                try:
-                    message = self.progress_queue.get_nowait()
-                    self._handle_progress_message(message)
-                except Empty:
-                    break
-        except Exception as e:
-            log_error(self.logger, f"Error processing progress queue: {e}")
-        
-        # Schedule next check
-        self.after(100, self.process_progress_queue)
+                response = self.response_queue.get_nowait()
+                msg_type = response.get("type")
 
-    def _handle_progress_message(self, message):
-        """Handle individual progress messages."""
-        msg_type = message.get("type")
+                if msg_type == "status":
+                    self.status_current_file.set(response.get("msg", "Idle"))
+                    self.set_led_status(response.get("led"))
+                elif msg_type == "increment_counter":
+                    counter_var = getattr(self, f"count_{response['counter']}", None)
+                    if counter_var:
+                        counter_var.set(counter_var.get() + 1)
+                elif msg_type == "file_complete":
+                    counter_var = None
+                    status = response.get("status")
+                    if status == "Pass": counter_var = self.count_pass
+                    elif status == "Fail": counter_var = self.count_fail
+                    elif status == "Needs Review": counter_var = self.count_review
+                    if counter_var: counter_var.set(counter_var.get() + 1)
+                elif msg_type == "log":
+                    self.log_message(response["msg"], response["tag"])
+                elif msg_type == "progress":
+                    current_item, total_items = response["current"], response["total"]
+                    if total_items > 0:
+                        percent_done = current_item / total_items
+                        self.progress_value.set(percent_done * 100)
+                        if self.start_time and current_item > 1:
+                            elapsed_time = time.time() - self.start_time
+                            total_estimated_time = elapsed_time / percent_done
+                            remaining_time = total_estimated_time - elapsed_time
+                            self.time_remaining_var.set(self.format_time(remaining_time))
+                elif msg_type == "review_item":
+                    self.reviewable_files.append(response["data"])
+                    item = response["data"]
+                    self.review_tree.insert('', 'end', values=(item['filename'], item['reason']))
+                elif msg_type == "result_path":
+                    self.result_file_path = response["path"]
+                elif msg_type == "finish":
+                    self.is_processing = False
+                    self.cancel_event.clear()
+                    self.progress_value.set(100)
+                    self.time_remaining_var.set("Complete!")
+                    self.status_current_file.set("Idle")
+                    self.set_led_status("Idle")
+                    self.process_btn.config(state=tk.NORMAL)
+                    self.rerun_btn.config(state=tk.NORMAL)
+                    self.exit_btn.config(state=tk.NORMAL)
+                    if self.reviewable_files: self.review_btn.config(state=tk.NORMAL)
+                    if self.result_file_path: self.open_result_btn.config(state=tk.NORMAL)
+                    self.log_message(f"Processing finished. Status: {response['status']}", "success" if response['status'] == 'Complete' else 'error')
         
-        if msg_type == "log":
-            self._add_log_message(message.get("tag", "info"), message.get("msg", ""))
-        elif msg_type == "progress":
-            self._update_progress(message.get("current", 0), message.get("total", 1))
-        elif msg_type == "status":
-            self.status_current_file.set(message.get("msg", ""))
-            led_status = message.get("led")
-            if led_status:
-                self.led_status_var.set(f"● {led_status}")
-        elif msg_type == "file_complete":
-            self._handle_file_complete(message.get("status"))
-        elif msg_type == "review_item":
-            self._add_review_item(message.get("data"))
-        elif msg_type == "increment_counter":
-            self._increment_counter(message.get("counter"))
-        elif msg_type == "result_path":
-            self.result_file_path = message.get("path")
-            self.open_result_btn.config(state="normal")
-        elif msg_type == "finish":
-            self._handle_processing_finished(message.get("status", "Complete"))
-
-    def _add_log_message(self, tag: str, msg: str):
-        """Add a message to the log display."""
-        timestamp = time.strftime("%H:%M:%S")
-        formatted_msg = f"[{timestamp}] {msg}\n"
-        
-        self.log_text.config(state="normal")
-        self.log_text.insert("end", formatted_msg)
-        
-        # Apply color coding based on tag
-        if tag == "error":
-            self.log_text.tag_add("error", "end-2l", "end-1l")
-            self.log_text.tag_config("error", foreground=BRAND_COLORS["fail_red"])
-        elif tag == "warning":
-            self.log_text.tag_add("warning", "end-2l", "end-1l")
-            self.log_text.tag_config("warning", foreground=BRAND_COLORS["warning_orange"])
-        elif tag == "success":
-            self.log_text.tag_add("success", "end-2l", "end-1l")
-            self.log_text.tag_config("success", foreground=BRAND_COLORS["success_green"])
-        
-        self.log_text.config(state="disabled")
-        self.log_text.see("end")
-
-    def _update_progress(self, current: int, total: int):
-        """Update the progress bar and time estimate."""
-        self.current_file_index = current
-        self.total_files = total
-        
-        if total > 0:
-            percentage = (current / total) * 100
-            self.progress_value.set(percentage)
+        except queue.Empty:
+            pass
+        finally:
+            self.after(100, self.process_response_queue)
+    
+    def set_led_status(self, status: str):
+        if not status:
+            self.led_status_var.set("")
+            return
             
-            # Calculate time remaining
-            if self.start_time and current > 0:
-                elapsed = time.time() - self.start_time
-                rate = current / elapsed
-                remaining_files = total - current
-                if rate > 0:
-                    remaining_seconds = remaining_files / rate
-                    if remaining_seconds < 60:
-                        self.time_remaining_var.set(f"{remaining_seconds:.0f}s remaining")
-                    else:
-                        minutes = remaining_seconds / 60
-                        self.time_remaining_var.set(f"{minutes:.1f}m remaining")
-                else:
-                    self.time_remaining_var.set("")
-            else:
-                self.time_remaining_var.set("")
-
-    def _handle_file_complete(self, status: str):
-        """Handle completion of a single file."""
-        if status == "Pass":
-            self.count_pass.set(self.count_pass.get() + 1)
-        elif status == "Fail":
-            self.count_fail.set(self.count_fail.get() + 1)
-        elif status == "Needs Review":
-            self.count_review.set(self.count_review.get() + 1)
-
-    def _add_review_item(self, data):
-        """Add an item to the review tree."""
-        if data:
-            filename = data.get("filename", "Unknown")
-            reason = data.get("reason", "Unknown")
-            self.review_tree.insert("", "end", values=(f"{filename} - {reason}",), tags=(data,))
-
-    def _increment_counter(self, counter: str):
-        """Increment a specific counter."""
-        if counter == "ocr":
-            self.count_ocr.set(self.count_ocr.get() + 1)
-
-    def _handle_processing_finished(self, status: str):
-        """Handle completion of processing job."""
-        self.processing = False
-        self._set_processing_ui_state(False)
+        text_map = {"Queued": "[Queued]", "OCR": "[OCR...]", "AI": "[AI...]", "Saving": "[Saving]", "Setup": "[Setup]"}
+        color_map = {"OCR": "LEDYellow", "AI": "LEDBlue", "Fail": "LEDRed", "Pass": "LEDGreen", "Needs Review": "LEDYellow"}
         
-        self.status_current_file.set(f"Completed: {status}")
-        self.time_remaining_var.set("")
+        self.led_status_var.set(text_map.get(status, f"[{status}]"))
         
-        if status == "Complete":
-            self.led_status_var.set("● Complete")
-            log_info(self.logger, "Processing completed successfully")
-            messagebox.showinfo("Processing Complete", "PDF processing completed successfully!")
-        elif status == "Cancelled":
-            self.led_status_var.set("● Cancelled")
-            log_info(self.logger, "Processing was cancelled")
+        style_name = color_map.get(status, "LED") + ".TLabel"
+        self.led_label.configure(style=style_name)
+
+    def update_ui_for_processing(self, is_processing):
+        self.is_processing = is_processing
+        
+        if is_processing:
+            # Reset counters for the new run
+            self.count_pass.set(0)
+            self.count_fail.set(0)
+            self.count_review.set(0)
+            self.count_ocr.set(0)
+            
+            self.process_btn.config(state=tk.DISABLED)
+            self.rerun_btn.config(state=tk.DISABLED)
+            self.exit_btn.config(state=tk.DISABLED)
+            self.open_result_btn.config(state=tk.DISABLED)
+            self.review_btn.config(state=tk.DISABLED)
+            
+            self.status_current_file.set("Initializing...")
+            self.time_remaining_var.set("Calculating...")
+            self.progress_value.set(0)
+            
+            self.reviewable_files.clear()
+            self.review_tree.delete(*self.review_tree.get_children())
+            self.result_file_path = None
+    
+    def start_processing(self, job_request=None):
+        if self.is_processing: return
+        if not job_request:
+            input_path = self.selected_folder.get() or self.selected_files_list
+            if not input_path:
+                messagebox.showwarning("Input Missing", "Please select a folder or PDF files to process.")
+                return
+            excel_path = self.selected_excel.get()
+            if not excel_path:
+                messagebox.showwarning("Input Missing", "Please select a base Excel file to clone.")
+                return
+            job_request = {"excel_path": excel_path, "input_path": input_path}
+            self.last_run_info = job_request
+        self.update_ui_for_processing(True)
+        self.log_message("Starting processing job...", "info")
+        self.start_time = time.time()
+        self.processing_thread = threading.Thread(target=run_processing_job, args=(job_request, self.response_queue, self.cancel_event), daemon=True)
+        self.processing_thread.start()
+
+    def rerun_last_job(self):
+        if self.last_run_info:
+            self.log_message("Re-running the last process with updated patterns...", "info")
+            job = dict(self.last_run_info)
+            job["is_rerun"] = True
+            self.start_processing(job_request=job)
         else:
-            self.led_status_var.set("● Error")
-            log_error(self.logger, f"Processing failed: {status}")
-            messagebox.showerror("Processing Failed", f"Processing failed: {status}")
+            messagebox.showwarning("No Previous Job", "Please run a process first before using the re-run feature.")
+    
+    def open_pattern_manager(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Pattern Manager")
+        dialog.geometry("350x150")
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+        ttk.Label(dialog, text="Which set of patterns would you like to manage?", wraplength=300).pack(pady=15)
+        btn_container = ttk.Frame(dialog)
+        btn_container.pack(pady=10)
+        def launch_review(pattern_name, pattern_label):
+            dialog.destroy()
+            file_to_review = None
+            selected_item = self.review_tree.focus()
+            if selected_item:
+                selected_filename = self.review_tree.item(selected_item)['values'][0]
+                file_to_review = next((f for f in self.reviewable_files if f['filename'] == selected_filename), None)
+            ReviewWindow(self, pattern_name, pattern_label, file_to_review)
+        ttk.Button(btn_container, text="Model Patterns", command=lambda: launch_review("MODEL_PATTERNS", "Model Recognition Patterns")).pack(side="left", padx=10)
+        ttk.Button(btn_container, text="QA Number Patterns", command=lambda: launch_review("QA_NUMBER_PATTERNS", "QA Number Patterns")).pack(side="left", padx=10)
 
-    # ------------------------------------------------------------------
-    # Utility methods
-    # ------------------------------------------------------------------
-    def open_result(self) -> None:
-        """Open the result Excel file."""
-        if not self.result_file_path or not Path(self.result_file_path).exists():
-            messagebox.showerror("File Not Found", "Result file not found or not yet generated.")
-            return
+    def browse_excel(self):
+        path = filedialog.askopenfilename(title="Select ServiceNow Excel File to Clone", filetypes=[("Excel Files", "*.xlsx")])
+        if path:
+            self.selected_excel.set(path)
 
+    def browse_folder(self):
+        path = filedialog.askdirectory(title="Select Folder Containing PDFs")
+        if path:
+            self.selected_folder.set(path)
+            self.selected_files_list.clear()
+            self.files_label.config(text="0 files selected")
+    
+    def browse_files(self):
+        paths = filedialog.askopenfilenames(title="Select PDF or ZIP Files", filetypes=[("PDF/ZIP Files", "*.pdf *.zip")])
+        if paths:
+            self.selected_files_list = list(paths)
+            self.files_label.config(text=f"{len(paths)} file(s) selected")
+            self.selected_folder.set("")
+            
+    def open_result(self):
+        if self.result_file_path and Path(self.result_file_path).exists():
+            open_file(self.result_file_path)
+        else:
+            messagebox.showwarning("File Not Found", "The result file could not be found. It may have been moved or deleted.")
+    
+    def format_time(self, seconds):
+        if seconds < 0: return ""
+        if seconds < 60: return f"{int(seconds)}s remaining"
+        minutes, seconds_part = divmod(int(seconds), 60)
+        return f"{minutes}m {seconds_part}s remaining"
+            
+    def log_message(self, msg, tag):
         try:
-            if sys.platform == "win32":
-                os.startfile(self.result_file_path)
-            elif sys.platform == "darwin":
-                subprocess.run(["open", self.result_file_path])
-            else:
-                subprocess.run(["xdg-open", self.result_file_path])
-            log_info(self.logger, f"Opened result file: {Path(self.result_file_path).name}")
+            timestamp = time.strftime("%H:%M:%S")
+            self.log_text.config(state=tk.NORMAL)
+            self.log_text.insert(tk.END, f"[{timestamp}] {msg}\n", tag)
+            self.log_text.see(tk.END)
+            self.log_text.config(state=tk.DISABLED)
+            if tag == "error": logger.error(msg)
+            else: logger.info(msg)
         except Exception as e:
-            log_error(self.logger, f"Failed to open result file: {e}")
-            messagebox.showerror("Open Failed", f"Could not open result file: {e}")
+            print(f"Failed to log message: {e}")
 
-    def open_review_folder(self) -> None:
-        """Open the folder containing PDFs that need review."""
-        try:
-            review_path = NEED_REVIEW_DIR
-            if not review_path.exists():
-                review_path.mkdir(parents=True, exist_ok=True)
-                
-            if sys.platform == "win32":
-                os.startfile(str(review_path))
-            elif sys.platform == "darwin":
-                subprocess.run(["open", str(review_path)])
-            else:
-                subprocess.run(["xdg-open", str(review_path)])
-            log_info(self.logger, "Opened review folder")
-        except Exception as e:
-            log_error(self.logger, f"Failed to open review folder: {e}")
-            messagebox.showinfo("Review Folder", f"Could not open folder automatically.\nPath: {review_path}")
-
-    def open_pattern_manager(self) -> None:
-        """Open the pattern management window."""
-        try:
-            ReviewWindow(self, "MODEL_PATTERNS", "Model Patterns")
-        except Exception as e:
-            log_error(self.logger, f"Failed to open pattern manager: {e}")
-            messagebox.showerror("Error", f"Could not open pattern manager: {e}")
-
-    def open_review_for_selected_file(self) -> None:
-        """Open review window for the selected file in the review tree."""
-        selection = self.review_tree.selection()
-        if not selection:
-            messagebox.showwarning("No Selection", "Please select a file from the review list.")
-            return
-
-        try:
-            item = self.review_tree.item(selection[0])
-            tags = item.get("tags")
-            if tags:
-                file_info = tags[0]  # The data is stored in the first tag
-                ReviewWindow(self, "MODEL_PATTERNS", "Model Patterns", file_info)
-        except Exception as e:
-            log_error(self.logger, f"Failed to open review window: {e}")
-            messagebox.showerror("Error", f"Could not open review window: {e}")
-
-    def toggle_fullscreen(self) -> None:
-        """Toggle fullscreen mode."""
-        current_state = self.attributes("-fullscreen")
-        self.attributes("-fullscreen", not current_state)
-
-    def on_closing(self) -> None:
-        """Handle application closing."""
-        if self.processing:
-            if messagebox.askyesno("Processing Active", "Processing is still running. Stop and exit?"):
+    def on_closing(self):
+        if self.is_processing:
+            if messagebox.askyesno("Confirm Exit", "Processing is still in progress. Are you sure you want to exit?"):
                 self.cancel_event.set()
-                if self.worker_thread and self.worker_thread.is_alive():
-                    self.worker_thread.join(timeout=2)
                 self.destroy()
         else:
             self.destroy()
-
-    def _collect_review_pdfs(self) -> list[str]:
-        """Return a list of PDF paths that require manual review."""
-        if not self.last_run_info:
-            return []
-
-        input_base = Path(self.last_run_info.get("input_path", ""))
-        needs_review_dir = PDF_TXT_DIR / "needs_review"
-        if not needs_review_dir.exists():
-            return []
-
-        review_pdfs: list[str] = []
-        for txt_file in needs_review_dir.glob("*.txt"):
-            try:
-                text = txt_file.read_text(encoding="utf-8")
-            except Exception:
-                continue
-
-            if "Needs Review" not in text:
-                continue
-
-            pdf_name = None
-            for line in text.splitlines():
-                if line.startswith("File:"):
-                    pdf_name = line.split(":", 1)[1].strip()
-                    break
-            if not pdf_name:
-                continue
-
-            candidate = input_base / pdf_name
-            if candidate.exists():
-                review_pdfs.append(str(candidate))
-                continue
-
-            for cache_json in CACHE_DIR.glob(f"{Path(pdf_name).stem}*.json"):
-                try:
-                    with open(cache_json, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    if "pdf_path" in data:
-                        review_pdfs.append(data["pdf_path"])
-                        break
-                except Exception:
-                    continue
-
-        return review_pdfs
-
+        cleanup_temp_files()
 
 if __name__ == "__main__":
     app = KyoQAToolApp()

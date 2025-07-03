@@ -1,127 +1,116 @@
 # data_harvesters.py
-# Version: 25.1.0
-# Last modified: 2025-07-02
-# Functions for extracting model numbers, QA numbers, and metadata from text
-
+import logging
+import pandas as pd
 import re
-import importlib
-import functools
-from pathlib import Path
-from config import (
-    MODEL_PATTERNS as DEFAULT_MODEL_PATTERNS,
-    QA_NUMBER_PATTERNS as DEFAULT_QA_PATTERNS,
-    EXCLUSION_PATTERNS,
-    UNWANTED_AUTHORS,
-    STANDARDIZATION_RULES,
-)
 
-@functools.lru_cache(maxsize=100)
-def get_compiled_pattern(pattern_str):
-    """Compile and cache regex patterns for better performance."""
-    return re.compile(pattern_str, re.IGNORECASE)
+logger = logging.getLogger(__name__)
+KNOWLEDGE_BASE_FIELDS = ['number', 'short_description', 'kb_knowledge_base']
 
-def get_combined_patterns(pattern_name: str, default_patterns: list) -> list:
-    """Safely loads and combines default and custom patterns."""
-    custom_patterns = []
-    try:
-        custom_mod = importlib.import_module("custom_patterns")
-        importlib.reload(custom_mod)
-        custom_patterns = getattr(custom_mod, pattern_name, [])
-    except (ImportError, SyntaxError):
-        pass
-    return custom_patterns + [p for p in default_patterns if p not in custom_patterns]
-
-def is_excluded(text: str) -> bool:
-    """Checks if a string contains any of the unwanted exclusion patterns."""
-    return any(p.lower() in text.lower() for p in EXCLUSION_PATTERNS)
-
-def clean_model_string(model_str: str) -> str:
-    """Applies standardization rules to a found model string."""
-    for rule, replacement in STANDARDIZATION_RULES.items():
-        model_str = model_str.replace(rule, replacement)
-    return model_str.strip()
-
-def harvest_models(text: str, filename: str) -> list:
-    """Finds all unique models from text and filename, respecting exclusions."""
-    models = set()
-    patterns = get_combined_patterns("MODEL_PATTERNS", DEFAULT_MODEL_PATTERNS)
+class DataHarvester:
+    def harvest_from_excel(self, file_path):
+        try:
+            # More adaptable: Try to find a relevant sheet name
+            xls = pd.ExcelFile(file_path)
+            sheet_name_to_use = 'Page 1' # Default
+            for name in xls.sheet_names:
+                if 'knowledge' in name.lower() or 'kb' in name.lower():
+                    sheet_name_to_use = name
+                    break
+            df = pd.read_excel(xls, sheet_name=sheet_name_to_use)
+            # Standardize column names (e.g., 'Number' -> 'number')
+            df.columns = [c.lower().replace(' ', '_') for c in df.columns]
+            return df.to_dict('records')
+        except Exception as e:
+            logger.error(f"Failed to harvest data from Excel file '{file_path}': {e}")
+            return []
     
-    for content in [text, filename.replace("_", " ")]:
-        for pattern_str in patterns:
-            pattern = get_compiled_pattern(pattern_str)
-            for match in pattern.findall(content):
-                if not is_excluded(match):
-                    models.add(clean_model_string(match))
-    return sorted(list(models))
+    def harvest_from_text(self, text_content):
+        if text_content:
+            return [{'number': 'TXT_001', 'short_description': 'Content from PDF', 'article_body': text_content[:500] + '...'}]
+        return []
 
-def harvest_author(text: str) -> str:
+# Model extraction patterns
+MODEL_PATTERNS = [
+    r'\b(?:model|models|product)\s*(?:name|number|no|#|:)?\s*[:-]?\s*([A-Z0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)*)',
+    r'\b([A-Z]{2,4}-[A-Z0-9]{3,5}(?:-[A-Z0-9]+)*)\b',
+    r'\b(TA[SX]-[A-Z0-9]{4,})\b',
+    r'\b(FS-[A-Z0-9]{4,})\b',
+    r'\b(ECOSYS [A-Z0-9]{4,})\b',
+    r'\b(TASKalfa [0-9]{4,}[a-z]*i?)\b',
+    # Add any other model patterns here
+]
+
+# QA Number patterns
+QA_NUMBER_PATTERNS = [
+    r'\bQA[-\s]?#?[-\s]?([0-9]{5,6})\b',
+    r'\bQA[-\s]?([0-9]{5,6})\b',
+    r'\b(QA[0-9]{5,6})\b',
+    # Add any other QA number patterns here
+]
+
+def bulletproof_extraction(text_content, filename=None):
     """
-    Finds the author and returns an empty string if it's an unwanted name.
+    Extract models and other metadata from document text using regex patterns.
+    This is the function that was missing and caused the import error.
     
     Args:
-        text: The text to search for author information
+        text_content: The text extracted from a PDF
+        filename: Original filename for reference
         
     Returns:
-        str: Author name or empty string if not found or unwanted
+        dict: Extracted data including models, qa numbers, etc.
     """
-    # Search for a line that looks like "Author: John Doe"
-    match = re.search(r"^Author:\s*(.*)", text, re.MULTILINE | re.IGNORECASE)
-    if match:
-        author = match.group(1).strip()
-        # Ensure the found author is not in the unwanted list
-        if author not in UNWANTED_AUTHORS:
-            return author
-    return "" # Return empty string if no author is found or if it's unwanted
-
-def harvest_qa_number(text: str) -> str:
-    """
-    Extracts QA numbers from text using combined patterns.
+    if not text_content or not isinstance(text_content, str):
+        return {"models": "Not Found", "author": "", "short_description": filename or "Unknown"}
     
-    Args:
-        text: The text to search for QA numbers
-        
-    Returns:
-        str: Found QA number or empty string
-    """
-    patterns = get_combined_patterns("QA_NUMBER_PATTERNS", DEFAULT_QA_PATTERNS)
-    for pattern_str in patterns:
-        pattern = get_compiled_pattern(pattern_str)
-        match = pattern.search(text)
-        if match:
-            return match.group(0).strip()
-    return ""
-
-def harvest_all_data(text: str, filename: str) -> dict:
-    """
-    The main harvester function that aggregates all data.
+    # Attempt to find all models mentioned in the text
+    all_models = []
+    for pattern in MODEL_PATTERNS:
+        matches = re.finditer(pattern, text_content, re.IGNORECASE)
+        for match in matches:
+            model = match.group(1).strip()
+            if model and model not in all_models and len(model) >= 4:  # Minimum length check
+                all_models.append(model)
     
-    Args:
-        text: The text to extract data from
-        filename: The filename to extract additional info from
-        
-    Returns:
-        dict: Dictionary with all extracted data
-    """
-    models_list = harvest_models(text, filename)
-    models_str = ", ".join(models_list) if models_list else "Not Found"
-    qa_number = harvest_qa_number(text)
-    author_str = harvest_author(text)
+    # Look for QA number references
+    qa_number = ""
+    full_qa_number = ""
+    for pattern in QA_NUMBER_PATTERNS:
+        matches = re.finditer(pattern, text_content, re.IGNORECASE)
+        for match in matches:
+            if match.group(1).isdigit():
+                qa_number = match.group(1)
+                full_qa_number = match.group(0)
+                break
+            else:
+                full_qa_number = match.group(0)
+                qa_number = ''.join(filter(str.isdigit, full_qa_number))
+            if qa_number:
+                break
+        if qa_number:
+            break
+    
+    # Extract potential author name (simple heuristic)
+    author = ""
+    author_pattern = r'(?:Author|Written by|Prepared by|Created by)[:\s]+([A-Z][a-z]+ [A-Z][a-z]+)'
+    author_match = re.search(author_pattern, text_content)
+    if author_match:
+        author = author_match.group(1)
+    
+    # Create a short description from filename or first meaningful line
+    short_description = filename or "Unknown File"
+    if len(text_content) > 10:
+        first_lines = text_content.split('\n')[:5]
+        for line in first_lines:
+            clean_line = line.strip()
+            if clean_line and len(clean_line) > 15 and not clean_line.startswith('Page '):
+                short_description = clean_line[:100]
+                break
     
     return {
-        "models": models_str, 
-        "author": author_str,
+        "models": ", ".join(all_models) if all_models else "Not Found",
+        "author": author,
+        "short_description": short_description,
+        "full_qa_number": full_qa_number,
         "qa_number": qa_number
     }
-
-# Backward-compatibility functions
-def harvest_models_from_text(text: str) -> set:
-    """Legacy function to maintain backward compatibility."""
-    return set(harvest_models(text, ""))
-
-def harvest_models_from_filename(filename: str) -> set:
-    """Legacy function to maintain backward compatibility."""
-    return set(harvest_models("", filename))
-
-def bulletproof_extraction(text: str, filename: str) -> dict:
-    """Backward-compatible wrapper for comprehensive extraction."""
-    return harvest_all_data(text, Path(filename).name if hasattr(filename, "name") else filename)
