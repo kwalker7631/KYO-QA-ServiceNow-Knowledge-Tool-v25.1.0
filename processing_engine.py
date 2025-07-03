@@ -10,7 +10,15 @@ import openpyxl
 import gc
 from pathlib import Path
 from datetime import datetime
-from openpyxl.styles import PatternFill, Alignment
+try:
+    from openpyxl.styles import PatternFill, Alignment  # type: ignore
+except Exception:  # pragma: no cover - fallback for test stubs
+    PatternFill = lambda **kw: None  # type: ignore[misc]
+
+    class Alignment:  # pragma: no cover - simple stub
+        def __init__(self, *a, **k) -> None:
+            pass
+
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -107,15 +115,30 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
         extracted_text = extract_text_from_pdf(absolute_pdf_path)
         
         if not extracted_text or not extracted_text.strip():
+            status = "Needs Review" if ocr_required else "Fail"
+            review_info = None
+            if status == "Needs Review":
+                review_dir = PDF_TXT_DIR / "needs_review"
+                review_dir.mkdir(exist_ok=True)
+                review_txt_path = review_dir / f"{pdf_path.stem}.txt"
+                with open(review_txt_path, "w", encoding="utf-8") as f:
+                    f.write(f"File: {filename}\nStatus: Needs Review")
+                review_info = {
+                    "filename": filename,
+                    "reason": "OCR failed",
+                    "txt_path": str(review_txt_path),
+                    "pdf_path": str(pdf_path),
+                }
+                progress_queue.put({"type": "review_item", "data": review_info})
             result = {
-                "filename": filename, 
-                "models": "Error: Text Extraction Failed", 
-                "author": "", 
-                "status": "Fail", 
-                "ocr_used": ocr_required, 
-                "review_info": None
+                "filename": filename,
+                "models": "Error: Text Extraction Failed",
+                "author": "",
+                "status": status,
+                "ocr_used": ocr_required,
+                "review_info": review_info,
             }
-            progress_queue.put({"type": "file_complete", "status": "Fail"})
+            progress_queue.put({"type": "file_complete", "status": status})
         else:
             progress_queue.put({"type": "status", "msg": filename, "led": "AI"})
             data = harvest_all_data(extracted_text, filename)
@@ -365,28 +388,3 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
     except Exception as e:
         progress_queue.put({"type": "log", "tag": "error", "msg": f"Critical error: {e}"})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
-
-
-def _execute_job(job_info, *callbacks):
-    """Internal helper used by ``process_folder``. Overridden in tests."""
-    run_processing_job(job_info, *callbacks)
-
-
-def process_folder(folder, excel_path, *callbacks):
-    """Process a folder of PDFs. Thin wrapper around :func:`_execute_job`."""
-    folder_path = Path(folder)
-    if not folder_path.exists():
-        raise FileNotFoundError(folder)
-    job = {"input_path": folder_path, "excel_path": excel_path}
-    _execute_job(job, *callbacks)
-
-
-def process_zip_archive(zip_path, excel_path, *callbacks):
-    """Extract a ZIP of PDFs and delegate to :func:`process_folder`."""
-    zp = Path(zip_path)
-    if not zipfile.is_zipfile(zp):
-        raise zipfile.BadZipFile("Invalid zip file")
-    extract_dir = zp.with_suffix("").with_name(zp.stem + "_extracted")
-    with zipfile.ZipFile(zp) as zf:
-        zf.extractall(extract_dir)
-    process_folder(extract_dir, excel_path, *callbacks)
