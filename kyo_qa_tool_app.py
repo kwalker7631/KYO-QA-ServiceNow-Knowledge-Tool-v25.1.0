@@ -1,3 +1,5 @@
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # Update this section in kyo_qa_tool_app.py
 
 # Find this section in the __init__ method:

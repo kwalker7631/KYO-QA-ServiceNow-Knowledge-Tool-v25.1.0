@@ -1,6 +1,6 @@
 # ocr_utils.py
-# Version: 25.1.0
-# Last modified: 2025-07-02
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # Utilities for extracting text from PDFs, including OCR for image-based documents
 
 import fitz  # PyMuPDF

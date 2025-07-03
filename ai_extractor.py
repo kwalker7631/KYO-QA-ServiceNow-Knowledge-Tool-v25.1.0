@@ -1,3 +1,5 @@
+# Version: 26.0.0
+# Last modified: 2025-07-03
 """Convenience wrapper to expose AI extraction helpers."""
 
 from data_harvesters import harvest_all_data as ai_extract, harvest_author as harvest_metadata

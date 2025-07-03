@@ -1,3 +1,5 @@
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # KYO QA ServiceNow Logging Utilities - REPAIRED
 from version import VERSION
 import logging

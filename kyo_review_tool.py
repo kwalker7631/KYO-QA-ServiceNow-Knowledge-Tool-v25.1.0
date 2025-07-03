@@ -137,7 +137,7 @@ class ReviewWindow(tk.Toplevel):
             except (ImportError, SyntaxError):
                 pass
 
-            file_content = "# custom_patterns.py\n# Version: 25.1.0\n# Last modified: " + \
+            file_content = "# custom_patterns.py\n# Version: 26.0.0\n# Last modified: " + \
                            f"{Path(__file__).stat().st_mtime:%Y-%m-%d}\n" + \
                            "# This file stores user-defined regex patterns.\n"
             

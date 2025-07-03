@@ -1,3 +1,5 @@
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # api_manager.py
 import json
 from pathlib import Path

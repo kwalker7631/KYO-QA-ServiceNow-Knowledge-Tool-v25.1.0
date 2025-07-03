@@ -1,3 +1,5 @@
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # gui_components.py
 import tkinter as tk
 from tkinter import ttk

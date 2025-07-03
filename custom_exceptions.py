@@ -1,3 +1,5 @@
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # custom_exceptions.py - Custom exception classes for KYO QA Tool
 
 class KYOQAToolError(Exception):

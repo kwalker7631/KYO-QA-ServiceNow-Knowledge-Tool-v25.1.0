@@ -1,5 +1,5 @@
 # version.py
-VERSION = "25.1.2"
+VERSION = "26.0.0"
 
 def get_version():
     return VERSION

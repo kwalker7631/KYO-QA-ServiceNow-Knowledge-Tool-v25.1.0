@@ -1,6 +1,6 @@
 # custom_patterns.py
-# Version: 25.1.1
-# Last modified: 2025-07-02
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # This file stores user-defined regex patterns for model number and QA number detection.
 
 MODEL_PATTERNS = [

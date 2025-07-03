@@ -1,3 +1,5 @@
+# Version: 26.0.0
+# Last modified: 2025-07-03
 """Generate a formatted Excel file for ServiceNow imports."""
 from __future__ import annotations
 

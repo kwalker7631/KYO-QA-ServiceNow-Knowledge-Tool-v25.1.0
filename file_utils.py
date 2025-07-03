@@ -1,6 +1,6 @@
 # file_utils.py
-# Version: 25.1.0
-# Last modified: 2025-07-02
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # Utilities for file operations, including file locking detection and safe copy operations
 
 import os

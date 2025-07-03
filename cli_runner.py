@@ -1,3 +1,5 @@
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # CLI Runner for KYO QA Knowledge Tool
 import argparse
 import os

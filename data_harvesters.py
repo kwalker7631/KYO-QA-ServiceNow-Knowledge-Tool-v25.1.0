@@ -1,6 +1,6 @@
 # data_harvesters.py
-# Version: 25.1.0
-# Last modified: 2025-07-02
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # Functions for extracting model numbers, QA numbers, and metadata from text
 
 import re

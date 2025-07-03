@@ -1,6 +1,6 @@
 # processing_engine.py
-# Version: 25.1.0
-# Last modified: 2025-07-02
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # Core processing pipeline for PDF extraction and Excel updates
 
 import shutil
