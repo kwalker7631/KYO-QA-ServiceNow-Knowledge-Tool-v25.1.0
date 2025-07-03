@@ -9,6 +9,17 @@ from pathlib import Path
 import shutil
 import time
 import threading
+import logging
+import os
+import traceback
+
+from error_reporter import report_error_to_ai
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(module)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 # --- Configuration ---
 VENV_DIR = Path(__file__).parent / "venv"
@@ -81,6 +92,13 @@ def run_command_with_spinner(command, message):
         sys.stdout.write(f"\r{Colors.RED}✗{Colors.ENDC} {message}... Failed.\n")
         return False
 
+def get_git_commit() -> str:
+    """Return current git commit hash if available."""
+    try:
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=Path(__file__).parent).decode().strip()
+    except Exception:
+        return "unknown"
+
 def get_venv_python_path():
     """Gets the path to the Python executable in the virtual environment."""
     return VENV_DIR / "Scripts" / "python.exe" if sys.platform == "win32" else VENV_DIR / "bin" / "python"
@@ -101,60 +119,101 @@ def ensure_pip(python_path):
 
 def setup_environment():
     """Checks Python version, creates venv, and installs dependencies."""
-    print_header()
+    try:
+        print_header()
 
-    if sys.version_info < MIN_PYTHON_VERSION:
-        print(f"{Colors.RED}✗ Error: Python {'.'.join(map(str, MIN_PYTHON_VERSION))}+ is required.{Colors.ENDC}")
-        return False
+        if sys.version_info < MIN_PYTHON_VERSION:
+            print(
+                f"{Colors.RED}✗ Error: Python {'.'.join(map(str, MIN_PYTHON_VERSION))}+ is required.{Colors.ENDC}"
+            )
+            return False
 
-    venv_python = get_venv_python_path()
-    if not (VENV_DIR.exists() and venv_python.exists()):
-        print("[INFO] Creating virtual environment...")
-        if VENV_DIR.exists(): 
-            shutil.rmtree(VENV_DIR)
-        if not run_command_with_spinner([sys.executable, "-m", "venv", str(VENV_DIR)], "Creating venv folder"):
-            return False
-        
-        if not ensure_pip(venv_python):
-            return False
-            
-        print("[INFO] Installing dependencies (this may take a few minutes)...")
-        if not run_command_with_spinner([str(venv_python), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)], "Installing packages"):
-            # If bulk install fails, try individual installation
-            print(f"{Colors.YELLOW}Bulk installation failed. Trying individual packages...{Colors.ENDC}")
-            for package in REQUIRED_PACKAGES:
-                if not run_command_with_spinner([str(venv_python), "-m", "pip", "install", package], f"Installing {package}"):
-                    print(f"{Colors.RED}Failed to install {package}. This may affect functionality.{Colors.ENDC}")
-    else:
-        print(f"{Colors.GREEN}✓ Virtual environment already exists.{Colors.ENDC}")
-        # Verify dependencies
-        if not run_command_with_spinner([str(venv_python), "-m", "pip", "install", "--quiet", "-r", str(REQUIREMENTS_FILE)], "Verifying dependencies"):
-            print(f"{Colors.YELLOW}Warning: Some dependencies may not be properly installed.{Colors.ENDC}")
-    
-    print(f"{Colors.GREEN}✓ Environment is ready.{Colors.ENDC}")
-    return True
+        venv_python = get_venv_python_path()
+        if not (VENV_DIR.exists() and venv_python.exists()):
+            print("[INFO] Creating virtual environment...")
+            if VENV_DIR.exists():
+                shutil.rmtree(VENV_DIR)
+            if not run_command_with_spinner([sys.executable, "-m", "venv", str(VENV_DIR)], "Creating venv folder"):
+                return False
+
+            if not ensure_pip(venv_python):
+                return False
+
+            print("[INFO] Installing dependencies (this may take a few minutes)...")
+            if not run_command_with_spinner([str(venv_python), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)], "Installing packages"):
+                print(f"{Colors.YELLOW}Bulk installation failed. Trying individual packages...{Colors.ENDC}")
+                for package in REQUIRED_PACKAGES:
+                    if not run_command_with_spinner([str(venv_python), "-m", "pip", "install", package], f"Installing {package}"):
+                        print(f"{Colors.RED}Failed to install {package}. This may affect functionality.{Colors.ENDC}")
+        else:
+            print(f"{Colors.GREEN}✓ Virtual environment already exists.{Colors.ENDC}")
+            if not run_command_with_spinner([str(venv_python), "-m", "pip", "install", "--quiet", "-r", str(REQUIREMENTS_FILE)], "Verifying dependencies"):
+                print(f"{Colors.YELLOW}Warning: Some dependencies may not be properly installed.{Colors.ENDC}")
+
+        print(f"{Colors.GREEN}✓ Environment is ready.{Colors.ENDC}")
+        return True
+    except Exception as exc:
+        context = {
+            "function": "setup_environment",
+            "filename": __file__,
+            "lineno": exc.__traceback__.tb_lineno if exc.__traceback__ else 0,
+            "commit": get_git_commit(),
+        }
+        logging.exception("setup_environment failed")
+        report_error_to_ai(exc, context)
+        raise
 
 def launch_application():
     """Launches the main GUI application and waits for it to close."""
-    print(f"\n{Colors.GREEN}--- Launching Application ---{Colors.ENDC}")
-    print("[INFO] A console window will remain open for stability. You can minimize it.")
-    
-    venv_python = get_venv_python_path()
     try:
+        print(f"\n{Colors.GREEN}--- Launching Application ---{Colors.ENDC}")
+        print("[INFO] A console window will remain open for stability. You can minimize it.")
+
+        venv_python = get_venv_python_path()
         subprocess.run([str(venv_python), str(MAIN_APP_SCRIPT)], check=True)
         print(f"\n{Colors.GREEN}--- Application Closed ---{Colors.ENDC}")
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as exc:
         print(f"\n{Colors.RED}--- APPLICATION CRASHED ---{Colors.ENDC}")
         print(f"{Colors.YELLOW}The application closed unexpectedly. Please review any error messages above.{Colors.ENDC}")
-    except FileNotFoundError:
+        context = {
+            "function": "launch_application",
+            "filename": __file__,
+            "lineno": exc.__traceback__.tb_lineno if exc.__traceback__ else 0,
+            "commit": get_git_commit(),
+        }
+        logging.exception("launch_application crashed")
+        report_error_to_ai(exc, context)
+        raise
+    except FileNotFoundError as exc:
         print(f"\n{Colors.RED}--- LAUNCH FAILED ---{Colors.ENDC}")
         print(f"{Colors.YELLOW}Could not find the application script: {MAIN_APP_SCRIPT}{Colors.ENDC}")
+        context = {
+            "function": "launch_application",
+            "filename": __file__,
+            "lineno": exc.__traceback__.tb_lineno if exc.__traceback__ else 0,
+            "commit": get_git_commit(),
+        }
+        logging.exception("launch_application failed")
+        report_error_to_ai(exc, context)
+        raise
 
 if __name__ == "__main__":
-    if setup_environment():
-        import error_tracker
-        error_tracker.init_error_tracker()
-        launch_application()
-    
+    try:
+        if setup_environment():
+            import error_tracker
+            error_tracker.init_error_tracker()
+            launch_application()
+    except Exception as exc:
+        context = {
+            "function": "__main__",
+            "filename": __file__,
+            "lineno": exc.__traceback__.tb_lineno if exc.__traceback__ else 0,
+            "args": sys.argv,
+            "commit": get_git_commit(),
+        }
+        logging.exception("launcher failed")
+        report_error_to_ai(exc, context)
+        raise
+
     print("\nPress Enter to exit the launcher.")
     input()

@@ -1,0 +1,20 @@
+name: AI Patch & Test
+on:
+  workflow_dispatch:
+jobs:
+  apply_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Fetch AI suggestions
+        run: python error_reporter.py --apply-suggestions
+      - name: Run tests
+        run: pytest
+      - name: Create PR if tests pass
+        uses: peter-evans/create-pull-request@v4
+        with:
+          commit-message: "chore: apply AI-generated fixes"
+          title: "[AI] auto-patch fixes"
+          body: "This PR applies AI-generated patches and passed tests."
