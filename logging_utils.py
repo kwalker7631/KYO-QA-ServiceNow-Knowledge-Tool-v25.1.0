@@ -2,10 +2,16 @@
 from version import VERSION
 import logging
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 import error_tracker
+
+try:
+    import sentry_sdk
+except ImportError:  # pragma: no cover - optional dependency
+    sentry_sdk = None
 
 LOG_DIR = Path.cwd() / "logs"
 LOG_DIR.mkdir(exist_ok=True)

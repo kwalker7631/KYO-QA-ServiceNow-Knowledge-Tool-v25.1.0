@@ -9,7 +9,6 @@ from pathlib import Path
 import shutil
 import time
 import threading
-
 import error_tracker
 
 # --- Configuration ---
