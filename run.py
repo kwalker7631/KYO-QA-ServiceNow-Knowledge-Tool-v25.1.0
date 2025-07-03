@@ -9,7 +9,6 @@ from pathlib import Path
 import shutil
 import time
 import threading
-import error_tracker
 
 # --- Configuration ---
 VENV_DIR = Path(__file__).parent / "venv"
@@ -152,8 +151,9 @@ def launch_application():
         print(f"{Colors.YELLOW}Could not find the application script: {MAIN_APP_SCRIPT}{Colors.ENDC}")
 
 if __name__ == "__main__":
-    error_tracker.install()
     if setup_environment():
+        import error_tracker
+        error_tracker.init_error_tracker()
         launch_application()
     
     print("\nPress Enter to exit the launcher.")
