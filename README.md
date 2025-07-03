@@ -1,10 +1,10 @@
-# KYO QA ServiceNow Knowledge Tool v25.1.1
+# KYO QA ServiceNow Knowledge Tool v25.1.2
 
 ## Overview
 
 This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSYS A123abcd`), QA/SB numbers, and descriptions from Kyocera QA/service PDFs using OCR and pattern recognition. It updates blank cells in the "Meta" column of a cloned ServiceNow-compatible Excel file, preserving the original. Text files for documents needing review are saved in `PDF_TXT/needs_review`. No PDFs are retained.
 
-## What's New in v25.1.1
+## What's New in v25.1.2
 
 - **Enhanced OCR Processing**: Improved image preprocessing for better text extraction from scanned documents
 - **Optimized Pattern Matching**: 10x faster regex processing with cached pattern compilation
@@ -13,6 +13,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 - **Organized Review Files**: Review files now stored in dedicated subfolder for easier management
 - **Memory Optimization**: Better memory management for processing large batches of files
 - **Bug Fixes**: Resolved critical issues with pattern processing and UI components
+- **Sentry Error Reporting**: Optional cloud-based error logging when `SENTRY_DSN` is set
 
 ## How to Set Up and Run
 
@@ -24,7 +25,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
 ### 2. Folder Structure
 
-KYO_QA_ServiceNow_Knowledge_Tool_v25.1.1/\
+KYO_QA_ServiceNow_Knowledge_Tool_v25.1.2/\
 ├── START.bat\
 ├── run.py\
 ├── start_tool.py\
@@ -104,16 +105,21 @@ KYO_QA_ServiceNow_Knowledge_Tool_v25.1.1/\
 
 ## Setup Steps
 
-1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v25.1.1`).
+1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v25.1.2`).
 2. Install Python 3.11.x or place portable Python in `python-3.11.9`. Optionally, install Tesseract or place in `tesseract` folder.
 3. Run `START.bat` (Windows) or `python run.py`:
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
    - Outputs logs to `/logs/` and Excel to `/output/`.
    - Set `SENTRY_DSN` in your environment to enable cloud error reporting.
+   
+     ```cmd
+     C:\> set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+     C:\> START.bat
+     ```
 4. Manual setup (if needed):
 
    ```bash
-   cd KYO_QA_ServiceNow_Knowledge_Tool_v25.1.1
+   cd KYO_QA_ServiceNow_Knowledge_Tool_v25.1.2
    rmdir /S /Q venv
    python -m venv venv
    venv\Scripts\python.exe -m ensurepip --default-pip
@@ -159,12 +165,12 @@ Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `col
 
 ## Versioning
 
-- Current version: **v25.1.1**
+- Current version: **v25.1.2**
 - Updates tracked in `CHANGELOG.md`.
 - Use `update_version.py` to change versions:
 
   ```bash
-  python update_version.py v25.1.1 v25.1.2
+  python update_version.py v25.1.2 v25.1.3
   ```
 
 ## Logging
@@ -173,6 +179,9 @@ Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `col
 - Success/failure logs as `[YYYYMMDD]_SUCCESSlog.md` or `FAILlog.md` in `/logs/`.
 - Text files for documents needing review (e.g., failed model extraction) in `/PDF_TXT/needs_review/*.txt`.
 - Optional Sentry reporting: set the environment variable `SENTRY_DSN` with your project DSN to forward errors to Sentry.
+   ```cmd
+   set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+   ```
 
 ## Portable Deployment
 

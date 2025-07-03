@@ -1,4 +1,4 @@
-# KYO QA ServiceNow Knowledge Tool - Usage Instructions
+# KYO QA ServiceNow Knowledge Tool v25.1.2 - Usage Instructions
 
 ## Basic Usage
 
@@ -9,6 +9,11 @@
    - Selecting individual PDF files
 4. **Click "START"** to begin processing
 5. **Monitor progress** with the status indicators, progress bar, and logs
+6. *(Optional)* **Enable error reporting** by setting the `SENTRY_DSN` environment variable before running:
+   ```cmd
+   set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+   ```
+   This forwards errors to your Sentry project for easier troubleshooting.
 
 ## PDF Processing & OCR
 
@@ -60,6 +65,14 @@ Cells are color-coded:
 - **Yellow**: Needs review (no models found)
 - **Red**: Failed to process
 - **Blue**: Required OCR processing
+
+## Error Reporting
+
+You can forward crashes to Sentry by setting the `SENTRY_DSN` environment variable before launching:
+
+```cmd
+set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+```
 
 ## Troubleshooting
 
