@@ -10,6 +10,11 @@ import shutil
 import time
 import threading
 
+try:
+    import sentry_sdk
+except Exception:  # pragma: no cover - optional dependency
+    sentry_sdk = None
+
 # --- Configuration ---
 VENV_DIR = Path(__file__).parent / "venv"
 REQUIREMENTS_FILE = Path(__file__).parent / "requirements.txt"
@@ -151,8 +156,16 @@ def launch_application():
         print(f"{Colors.YELLOW}Could not find the application script: {MAIN_APP_SCRIPT}{Colors.ENDC}")
 
 if __name__ == "__main__":
-    if setup_environment():
-        launch_application()
-    
-    print("\nPress Enter to exit the launcher.")
-    input()
+    try:
+        if setup_environment():
+            launch_application()
+    except Exception as exc:  # pragma: no cover - startup wrapper
+        if sentry_sdk:
+            try:
+                sentry_sdk.capture_exception(exc)
+            except Exception:
+                pass
+        raise
+    finally:
+        print("\nPress Enter to exit the launcher.")
+        input()

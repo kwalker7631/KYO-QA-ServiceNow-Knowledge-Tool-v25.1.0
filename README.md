@@ -109,6 +109,8 @@ KYO_QA_ServiceNow_Knowledge_Tool_v25.1.1/\
 3. Run `START.bat` (Windows) or `python run.py`:
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
    - Outputs logs to `/logs/` and Excel to `/output/`.
+   - *(Optional)* Set the `SENTRY_DSN` environment variable if you want errors
+     reported to your Sentry dashboard.
 4. Manual setup (if needed):
 
    ```bash

@@ -2,9 +2,15 @@
 from version import VERSION
 import logging
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+
+try:
+    import sentry_sdk
+except Exception:  # pragma: no cover - optional dependency
+    sentry_sdk = None
 
 LOG_DIR = Path.cwd() / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -58,7 +64,17 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logg
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
 
-        root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
+        root_logger.info(
+            f"Logging initialized for session. Log file: {SESSION_LOG_FILE}"
+        )
+
+        dsn = os.getenv("SENTRY_DSN")
+        if dsn and sentry_sdk and not sentry_sdk.Hub.current.client:
+            try:  # pragma: no cover - simple init
+                sentry_sdk.init(dsn=dsn)
+                root_logger.info("Sentry monitoring enabled")
+            except Exception as e:  # pragma: no cover - avoid crash
+                root_logger.warning(f"Failed to init Sentry: {e}")
 
     logger = logging.getLogger(name)
     
