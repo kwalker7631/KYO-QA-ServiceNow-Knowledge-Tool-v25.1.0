@@ -24,7 +24,6 @@ sys.modules.setdefault("processing_engine", processing_stub)
 pil_stub = types.ModuleType("PIL")
 pil_stub.Image = types.SimpleNamespace(open=lambda *a, **k: None)
 sys.modules.setdefault("PIL", pil_stub)
-
 sys.modules.setdefault("fitz", types.ModuleType("fitz"))
 sys.modules.setdefault("cv2", types.ModuleType("cv2"))
 sys.modules.setdefault("numpy", types.ModuleType("numpy"))

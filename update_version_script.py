@@ -3,8 +3,9 @@
 
 import re
 from pathlib import Path
-import fileinput
 from datetime import datetime
+
+new_version = "25.1.1"
 
 # Files to update with version number changes
 FILES_TO_UPDATE = [

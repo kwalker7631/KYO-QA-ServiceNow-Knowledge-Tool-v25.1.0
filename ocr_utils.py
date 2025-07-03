@@ -250,7 +250,10 @@ def get_pdf_metadata(pdf_path):
     try:
         with _open_pdf(pdf_path) as doc:
             metadata = doc.metadata
-            page_count = len(doc)
+            try:
+                page_count = len(doc)
+            except Exception:
+                page_count = 0
 
         result = {
             "title": metadata.get("title", ""),

@@ -15,14 +15,14 @@ def test_model_extraction(pdf_path: Path):
     print("="*60)
 
     # 1. Check for Tesseract (from ocr_utils.py)
-    print(f"\n[Step 1: OCR Check]")
+    print("\n[Step 1: OCR Check]")
     if TESSERACT_AVAILABLE:
         print("✅ Tesseract OCR is available.")
     else:
         print("⚠️ Tesseract OCR not found. Extraction will rely on embedded text only.")
 
     # 2. Extract raw text using the app's own OCR utility
-    print(f"\n[Step 2: Extracting Text]")
+    print("\n[Step 2: Extracting Text]")
     start_time = time.time()
     raw_text = extract_text_from_pdf(pdf_path)
     end_time = time.time()
@@ -34,7 +34,7 @@ def test_model_extraction(pdf_path: Path):
     print(f"✅ Text extracted in {end_time - start_time:.2f} seconds ({len(raw_text)} characters).")
 
     # 3. Run the model harvesting logic
-    print(f"\n[Step 3: Harvesting Models]")
+    print("\n[Step 3: Harvesting Models]")
     print(f"-> Using {len(MODEL_PATTERNS)} patterns from config.py")
     
     # Use harvest_all_data to extract models and related metadata
@@ -44,7 +44,7 @@ def test_model_extraction(pdf_path: Path):
     # 4. Print the final results
     print("\n" + "="*25 + " RESULTS " + "="*26)
     if found_models_str and found_models_str != 'Not Found':
-        print(f"✅ SUCCESS: Found the following models:")
+        print("✅ SUCCESS: Found the following models:")
         print(f"\n    {found_models_str}\n")
     else:
         print(f"❌ FAILURE: No models were found in '{pdf_path.name}'.")

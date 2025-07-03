@@ -43,4 +43,3 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None, to_console=Fals
         "%(asctime)s [%(levelname)-8s] [%(name)-20s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
     )
-  

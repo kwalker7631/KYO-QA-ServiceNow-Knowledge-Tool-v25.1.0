@@ -388,3 +388,27 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
     except Exception as e:
         progress_queue.put({"type": "log", "tag": "error", "msg": f"Critical error: {e}"})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
+
+
+def _execute_job(job_info, progress_queue, cancel_event, pause_event=None):
+    """Wrapper to allow tests to mock execution."""
+    return run_processing_job(job_info, progress_queue, cancel_event, pause_event)
+
+
+def process_folder(folder_path, excel_path, *_callbacks):
+    """Entry point used by CLI and tests to process a folder of PDFs."""
+    if not Path(folder_path).exists():
+        raise FileNotFoundError(folder_path)
+    job = {"input_path": Path(folder_path), "excel_path": Path(excel_path)}
+    return _execute_job(job, None, None)
+
+
+def process_zip_archive(zip_path, excel_path, *_callbacks):
+    """Extract a zip archive of PDFs then process the contents."""
+    tmp_dir = Path(zip_path).with_suffix("")
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmp_dir)
+    except zipfile.BadZipFile:
+        raise
+    return process_folder(tmp_dir, excel_path, *_callbacks)
