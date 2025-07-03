@@ -39,7 +39,7 @@ if not hasattr(kyo_qa_tool_app.KyoQAToolApp, "_collect_review_pdfs"):
 
 
 def test_collect_review_pdfs(tmp_path, monkeypatch):
-    pdf_txt = tmp_path / "PDF_TXT"
+    pdf_txt = tmp_path / "NEED_REVIEW"
     cache_dir = tmp_path / ".cache"
     pdf_txt.mkdir()
     cache_dir.mkdir()
@@ -52,6 +52,7 @@ def test_collect_review_pdfs(tmp_path, monkeypatch):
         json.dump({"pdf_path": str(pdf)}, f)
 
     monkeypatch.setattr(kyo_qa_tool_app, "PDF_TXT_DIR", pdf_txt, raising=False)
+    monkeypatch.setattr(kyo_qa_tool_app, "NEED_REVIEW_DIR", pdf_txt, raising=False)
     monkeypatch.setattr(kyo_qa_tool_app, "CACHE_DIR", cache_dir, raising=False)
 
     app = kyo_qa_tool_app.KyoQAToolApp.__new__(kyo_qa_tool_app.KyoQAToolApp)

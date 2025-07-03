@@ -10,7 +10,14 @@ import time
 from pathlib import Path
 from logging_utils import setup_logger, log_info, log_error, log_warning
 from datetime import datetime
-from config import LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
+from config import (
+    LOGS_DIR,
+    OUTPUT_DIR,
+    NEED_REVIEW_DIR,
+    OCR_FAILED_DIR,
+    PDF_TXT_DIR,
+    CACHE_DIR,
+)
 
 logger = setup_logger("file_utils")
 
@@ -18,10 +25,18 @@ def ensure_folders(base_folder=None):
     """Create all necessary application folders on startup."""
     
     # List of folders to ensure
-    folders = [LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR]
-    
-    # Add a "needs_review" subdirectory under PDF_TXT_DIR
-    review_dir = PDF_TXT_DIR / "needs_review"
+    folders = [LOGS_DIR, OUTPUT_DIR, NEED_REVIEW_DIR, OCR_FAILED_DIR, CACHE_DIR]
+
+    # Migrate old folder name if present
+    old_review_dir = NEED_REVIEW_DIR.parent / "PDF_TXT"
+    if old_review_dir.exists() and not NEED_REVIEW_DIR.exists():
+        try:
+            old_review_dir.rename(NEED_REVIEW_DIR)
+            log_info(logger, f"Renamed {old_review_dir} to {NEED_REVIEW_DIR}")
+        except Exception as e:
+            log_error(logger, f"Failed to rename {old_review_dir}: {e}")
+
+    review_dir = NEED_REVIEW_DIR / "needs_review"
     folders.append(review_dir)
     
     for folder in folders:
@@ -149,6 +164,21 @@ def open_file(path):
     except Exception as e:
         log_error(logger, f"Failed to open file {path}: {e}")
         return False
+
+
+def move_to_folder(source_path, dest_dir, reason=""):
+    """Move a file to a destination directory with logging."""
+    source_path = Path(source_path)
+    dest_dir = Path(dest_dir)
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = dest_dir / source_path.name
+        shutil.move(str(source_path), dest_path)
+        log_info(logger, f"Moved {source_path.name} to {dest_dir.name}: {reason}")
+        return dest_path
+    except Exception as e:
+        log_error(logger, f"Failed to move {source_path} to {dest_dir}: {e}")
+        return None
 
 def copy_file_safely(source_path, dest_path, retries=3, wait_time=1.0):
     """

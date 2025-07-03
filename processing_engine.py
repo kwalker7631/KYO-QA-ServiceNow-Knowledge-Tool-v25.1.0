@@ -22,10 +22,17 @@ except Exception:  # pragma: no cover - fallback for test stubs
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
-from config import META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
+from config import (
+    META_COLUMN_NAME,
+    OUTPUT_DIR,
+    NEED_REVIEW_DIR,
+    OCR_FAILED_DIR,
+    PDF_TXT_DIR,
+    CACHE_DIR,
+)
 from custom_exceptions import PDFExtractionError
 from data_harvesters import harvest_all_data
-from file_utils import is_file_locked
+from file_utils import is_file_locked, move_to_folder
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
 from logging_utils import setup_logger, log_error
 import zipfile
@@ -38,11 +45,11 @@ def cleanup_memory():
 
 def clear_review_folder():
     """Deletes all .txt files in the PDF_TXT directory."""
-    if PDF_TXT_DIR.exists():
-        review_dir = PDF_TXT_DIR / "needs_review"
+    if NEED_REVIEW_DIR.exists():
+        review_dir = NEED_REVIEW_DIR / "needs_review"
         review_dir.mkdir(exist_ok=True)
         
-        for f in PDF_TXT_DIR.glob("*.txt"):
+        for f in NEED_REVIEW_DIR.glob("*.txt"):
             try:
                 # Move any existing txt files to the needs_review subdirectory
                 target = review_dir / f.name
@@ -118,7 +125,7 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
             status = "Needs Review" if ocr_required else "Fail"
             review_info = None
             if status == "Needs Review":
-                review_dir = PDF_TXT_DIR / "needs_review"
+                review_dir = NEED_REVIEW_DIR / "needs_review"
                 review_dir.mkdir(exist_ok=True)
                 review_txt_path = review_dir / f"{pdf_path.stem}.txt"
                 with open(review_txt_path, "w", encoding="utf-8") as f:
@@ -129,6 +136,7 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
                     "txt_path": str(review_txt_path),
                     "pdf_path": str(pdf_path),
                 }
+                move_to_folder(pdf_path, NEED_REVIEW_DIR, "OCR failed")
                 progress_queue.put({"type": "review_item", "data": review_info})
             result = {
                 "filename": filename,
@@ -145,7 +153,7 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
             
             if data["models"] == "Not Found":
                 status = "Needs Review"
-                review_dir = PDF_TXT_DIR / "needs_review"
+                review_dir = NEED_REVIEW_DIR / "needs_review"
                 review_dir.mkdir(exist_ok=True)
                 review_txt_path = review_dir / f"{pdf_path.stem}.txt"
                 
@@ -182,6 +190,7 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
     except PDFExtractionError as e:
         log_error(logger, f"PDF extraction error for {filename}: {e}")
         progress_queue.put({"type": "log", "tag": "error", "msg": f"PDF extraction error: {e}"})
+        move_to_folder(pdf_path, OCR_FAILED_DIR, "PDF extraction error")
         progress_queue.put({"type": "file_complete", "status": "Fail"})
         return {
             "filename": filename,
@@ -194,6 +203,7 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
     except Exception as e:
         log_error(logger, f"Unexpected error processing {filename}: {e}")
         progress_queue.put({"type": "log", "tag": "error", "msg": f"Processing error: {e}"})
+        move_to_folder(pdf_path, OCR_FAILED_DIR, "Processing error")
         progress_queue.put({"type": "file_complete", "status": "Fail"})
         return {
             "filename": filename,

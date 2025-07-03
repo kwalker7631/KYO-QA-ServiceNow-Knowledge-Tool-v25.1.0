@@ -5,7 +5,11 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR / "output"
 LOGS_DIR = BASE_DIR / "logs"
-PDF_TXT_DIR = BASE_DIR / "PDF_TXT"
+# Directory containing PDFs that need manual review
+NEED_REVIEW_DIR = BASE_DIR / "NEED_REVIEW"
+# Directory for PDFs where OCR or translation completely failed
+OCR_FAILED_DIR = BASE_DIR / "OCR_FAILED"
+PDF_TXT_DIR = NEED_REVIEW_DIR  # backward compatibility
 CACHE_DIR = BASE_DIR / ".cache"
 ASSETS_DIR = BASE_DIR / "assets" # For icons
 

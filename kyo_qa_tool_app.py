@@ -7,6 +7,7 @@ from tkinter import ttk, filedialog, messagebox
 from config import (
     BRAND_COLORS,
     PDF_TXT_DIR,
+    NEED_REVIEW_DIR,
     CACHE_DIR,
     ASSETS_DIR,
 )
@@ -153,6 +154,14 @@ class KyoQAToolApp(tk.Tk):
 
     def open_result(self) -> None:  # pragma: no cover - GUI behavior
         messagebox.showinfo("Open", "Opening result Excel file.")
+
+    def open_review_folder(self) -> None:  # pragma: no cover - GUI behavior
+        """Open the folder containing PDFs that need review."""
+        from file_utils import open_file
+        review_path = NEED_REVIEW_DIR
+        opened = open_file(review_path)
+        if not opened:
+            messagebox.showinfo("Review Folder", f"Path: {review_path}")
 
     def browse_excel(self) -> None:  # pragma: no cover - GUI behavior
         path = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx")])

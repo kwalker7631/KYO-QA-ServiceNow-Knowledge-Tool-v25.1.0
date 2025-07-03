@@ -29,10 +29,27 @@ def test_ensure_folders_creates_review_subdir(tmp_path: Path, monkeypatch):
     monkeypatch.setattr('config.LOGS_DIR', tmp_path / 'logs')
     monkeypatch.setattr('config.OUTPUT_DIR', tmp_path / 'output')
     monkeypatch.setattr('config.CACHE_DIR', tmp_path / '.cache')
-    review_dir = tmp_path / 'PDF_TXT' / 'needs_review'
+    review_dir = tmp_path / 'NEED_REVIEW' / 'needs_review'
+    monkeypatch.setattr('config.NEED_REVIEW_DIR', review_dir.parent)
+    monkeypatch.setattr('config.OCR_FAILED_DIR', tmp_path / 'OCR_FAILED')
     monkeypatch.setattr('config.PDF_TXT_DIR', review_dir.parent)
 
     ensure_folders()
     assert review_dir.exists()
+
+
+def test_ensure_folders_renames_pdf_txt(tmp_path: Path, monkeypatch):
+    old_dir = tmp_path / 'PDF_TXT'
+    old_dir.mkdir()
+    monkeypatch.setattr('config.NEED_REVIEW_DIR', tmp_path / 'NEED_REVIEW')
+    monkeypatch.setattr('config.OCR_FAILED_DIR', tmp_path / 'OCR_FAILED')
+    monkeypatch.setattr('config.PDF_TXT_DIR', tmp_path / 'NEED_REVIEW')
+    monkeypatch.setattr('config.LOGS_DIR', tmp_path / 'logs')
+    monkeypatch.setattr('config.OUTPUT_DIR', tmp_path / 'output')
+    monkeypatch.setattr('config.CACHE_DIR', tmp_path / '.cache')
+
+    ensure_folders()
+    assert not old_dir.exists()
+    assert (tmp_path / 'NEED_REVIEW').exists()
 
 
