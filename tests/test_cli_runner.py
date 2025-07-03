@@ -11,6 +11,7 @@ openpyxl_stub = types.ModuleType("openpyxl")
 openpyxl_stub.load_workbook = lambda *a, **k: None
 openpyxl_stub.styles = types.ModuleType("openpyxl.styles")
 openpyxl_stub.styles.PatternFill = lambda **kw: None
+openpyxl_stub.styles.Alignment = lambda **kw: None
 openpyxl_stub.utils = types.ModuleType("openpyxl.utils")
 openpyxl_stub.utils.get_column_letter = lambda x: "A"
 openpyxl_stub.utils.exceptions = types.ModuleType("openpyxl.utils.exceptions")
@@ -19,6 +20,16 @@ sys.modules.setdefault("openpyxl", openpyxl_stub)
 sys.modules.setdefault("openpyxl.styles", openpyxl_stub.styles)
 sys.modules.setdefault("openpyxl.utils", openpyxl_stub.utils)
 sys.modules.setdefault("openpyxl.utils.exceptions", openpyxl_stub.utils.exceptions)
+
+processing_stub = types.ModuleType("processing_engine")
+processing_stub.process_folder = lambda *a, **k: None
+processing_stub.process_zip_archive = lambda *a, **k: None
+sys.modules.setdefault("processing_engine", processing_stub)
+
+# Stub Pillow's Image module
+pil_stub = types.ModuleType("PIL")
+pil_stub.Image = types.SimpleNamespace(open=lambda *a, **k: None)
+sys.modules.setdefault("PIL", pil_stub)
 
 sys.modules.setdefault("fitz", types.ModuleType("fitz"))
 sys.modules.setdefault("cv2", types.ModuleType("cv2"))

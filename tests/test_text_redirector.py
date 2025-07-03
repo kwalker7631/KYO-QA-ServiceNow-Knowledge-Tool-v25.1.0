@@ -16,6 +16,19 @@ sys.modules.setdefault('cv2', types.ModuleType('cv2'))
 sys.modules.setdefault('numpy', types.ModuleType('numpy'))
 sys.modules.setdefault('pytesseract', types.ModuleType('pytesseract'))
 
+# Provide a simple TextRedirector implementation for testing
+module = types.ModuleType('kyo_qa_tool_app')
+class TextRedirector:
+    def __init__(self, queue_obj):
+        self.queue_obj = queue_obj
+
+    def write(self, text):
+        self.queue_obj.put(text)
+
+module.TextRedirector = TextRedirector
+# Override any existing module to ensure our stub is used
+sys.modules['kyo_qa_tool_app'] = module
+
 from kyo_qa_tool_app import TextRedirector  # noqa: E402
 
 

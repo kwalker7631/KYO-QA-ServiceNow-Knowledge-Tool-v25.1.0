@@ -32,6 +32,12 @@ if 'pytesseract' not in sys.modules:
     pytesseract_stub = types.SimpleNamespace(image_to_string=lambda *a, **k: "")
     sys.modules['pytesseract'] = pytesseract_stub
 
+# Stub Pillow if not available
+if 'PIL' not in sys.modules:
+    pil_stub = types.ModuleType('PIL')
+    pil_stub.Image = types.SimpleNamespace(open=lambda *a, **k: None)
+    sys.modules['PIL'] = pil_stub
+
 import ocr_utils
 
 

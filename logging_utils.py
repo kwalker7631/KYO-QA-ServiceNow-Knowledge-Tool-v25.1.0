@@ -5,8 +5,10 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+from config import LOGS_DIR
 
-LOG_DIR = Path.cwd() / "logs"
+# Use configured logs directory rather than the current working directory
+LOG_DIR = LOGS_DIR
 LOG_DIR.mkdir(exist_ok=True)
 
 SESSION_LOG_FILE = LOG_DIR / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_session.log"
