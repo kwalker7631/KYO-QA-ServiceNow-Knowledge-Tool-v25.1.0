@@ -1,6 +1,6 @@
 # update_version.py
-# Version: 25.1.0
-# Last modified: 2025-07-02
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # Utility to update version numbers across all relevant files
 
 import re
@@ -12,6 +12,7 @@ import sys
 # Add any new files that contain the version number to this list.
 FILES_TO_UPDATE = [
     "start_tool.py",
+    "error_tracker.py",
     "README.md",
     "CHANGELOG.md",
     "run.py",
