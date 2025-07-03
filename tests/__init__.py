@@ -1,0 +1,32 @@
+import sys
+import types
+
+# Provide lightweight stubs for heavy optional dependencies
+openpyxl_stub = types.ModuleType("openpyxl")
+openpyxl_stub.load_workbook = lambda *a, **k: None
+openpyxl_stub.styles = types.ModuleType("openpyxl.styles")
+openpyxl_stub.styles.PatternFill = lambda **kw: None
+openpyxl_stub.styles.Alignment = object
+openpyxl_stub.utils = types.ModuleType("openpyxl.utils")
+openpyxl_stub.utils.get_column_letter = lambda x: "A"
+openpyxl_stub.utils.exceptions = types.ModuleType("openpyxl.utils.exceptions")
+openpyxl_stub.utils.exceptions.InvalidFileException = Exception
+sys.modules.setdefault("openpyxl", openpyxl_stub)
+sys.modules.setdefault("openpyxl.styles", openpyxl_stub.styles)
+sys.modules.setdefault("openpyxl.utils", openpyxl_stub.utils)
+sys.modules.setdefault("openpyxl.utils.exceptions", openpyxl_stub.utils.exceptions)
+
+# Pillow stub
+pil_stub = types.ModuleType("PIL")
+image_stub = types.SimpleNamespace(open=lambda *a, **k: None)
+pil_stub.Image = image_stub
+sys.modules.setdefault("PIL", pil_stub)
+sys.modules.setdefault("PIL.Image", pil_stub.Image)
+
+# Other heavy libraries commonly imported
+sys.modules.setdefault("fitz", types.ModuleType("fitz"))
+sys.modules.setdefault("cv2", types.ModuleType("cv2"))
+sys.modules.setdefault("numpy", types.ModuleType("numpy"))
+pt_stub = types.ModuleType("pytesseract")
+pt_stub.image_to_string = lambda *a, **k: ""
+sys.modules.setdefault("pytesseract", pt_stub)

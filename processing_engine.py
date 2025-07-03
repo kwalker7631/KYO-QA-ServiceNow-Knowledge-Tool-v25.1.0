@@ -7,11 +7,7 @@ import shutil
 import time
 import json
 import openpyxl
-import re
 import gc
-import threading
-import zipfile
-from queue import Queue
 from pathlib import Path
 from datetime import datetime
 try:
@@ -27,11 +23,12 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
 from config import META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
-from custom_exceptions import FileLockError, PDFExtractionError
+from custom_exceptions import PDFExtractionError
 from data_harvesters import harvest_all_data
 from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
-from logging_utils import setup_logger, log_info, log_error, log_warning
+from logging_utils import setup_logger, log_error
+import zipfile
 
 logger = setup_logger("processing_engine")
 
@@ -224,7 +221,7 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
         progress_queue.put({"type": "log", "tag": "info", "msg": "Processing job started."})
 
         if is_rerun:
-            progress_queue.put({"type": "log", "tag": "info", "msg": f"Re-running process with updated patterns."})
+            progress_queue.put({"type": "log", "tag": "info", "msg": "Re-running process with updated patterns."})
             clear_review_folder()
             cloned_path = excel_path
         else:
@@ -374,8 +371,8 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
 
             # Save the updated workbook
             workbook.save(cloned_path)
-            progress_queue.put({"type": "log", "tag": "success", 
-                               f"msg": f"Updated {updates_made} rows in Excel file."})
+            progress_queue.put({"type": "log", "tag": "success",
+                               "msg": f"Updated {updates_made} rows in Excel file."})
             progress_queue.put({"type": "result_path", "path": str(cloned_path)})
             progress_queue.put({"type": "finish", "status": "Complete"})
 
@@ -391,38 +388,3 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
     except Exception as e:
         progress_queue.put({"type": "log", "tag": "error", "msg": f"Critical error: {e}"})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
-
-
-def _execute_job(job_info, log_fn, status_fn, finish_fn, progress_fn, review_fn, cancel_check):
-    """Internal helper to execute a processing job. Simplified for tests."""
-    q = Queue()
-    cancel_event = threading.Event()
-    thread = threading.Thread(
-        target=run_processing_job,
-        args=(job_info, q, cancel_event, None),
-        daemon=True,
-    )
-    thread.start()
-    thread.join(0)
-
-
-def process_folder(folder, excel_path, log_fn, status_fn, finish_fn, progress_fn, cancel_check):
-    """Validate folder and start a processing job."""
-    folder_path = Path(folder)
-    if not folder_path.exists():
-        raise FileNotFoundError(folder)
-
-    job = {
-        "input_path": folder_path,
-        "excel_path": Path(excel_path),
-    }
-    _execute_job(job, log_fn, status_fn, finish_fn, progress_fn, cancel_check)
-
-
-def process_zip_archive(zip_path, excel_path, log_fn, status_fn, finish_fn, progress_fn, cancel_check):
-    """Extract a zip archive then process the contained PDFs."""
-    with zipfile.ZipFile(zip_path) as zf:
-        extract_dir = Path(zip_path).with_suffix("")
-        zf.extractall(extract_dir)
-
-    process_folder(extract_dir, excel_path, log_fn, status_fn, finish_fn, progress_fn, cancel_check)
