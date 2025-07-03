@@ -1,6 +1,5 @@
 # CLI Runner for KYO QA Knowledge Tool
 import argparse
-import os
 from datetime import datetime
 from pathlib import Path
 

@@ -26,11 +26,11 @@ def test_is_file_locked_true(tmp_path: Path):
 
 
 def test_ensure_folders_creates_review_subdir(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr('file_utils.LOGS_DIR', tmp_path / 'logs')
-    monkeypatch.setattr('file_utils.OUTPUT_DIR', tmp_path / 'output')
-    monkeypatch.setattr('file_utils.CACHE_DIR', tmp_path / '.cache')
+    monkeypatch.setattr('config.LOGS_DIR', tmp_path / 'logs')
+    monkeypatch.setattr('config.OUTPUT_DIR', tmp_path / 'output')
+    monkeypatch.setattr('config.CACHE_DIR', tmp_path / '.cache')
     review_dir = tmp_path / 'PDF_TXT' / 'needs_review'
-    monkeypatch.setattr('file_utils.PDF_TXT_DIR', review_dir)
+    monkeypatch.setattr('config.PDF_TXT_DIR', review_dir.parent)
 
     ensure_folders()
     assert review_dir.exists()

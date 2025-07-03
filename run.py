@@ -1,6 +1,6 @@
 # run.py
-# Version: 25.1.0
-# Last modified: 2025-07-02
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # Application launcher with dependency setup and error handling
 
 import sys
@@ -9,11 +9,7 @@ from pathlib import Path
 import shutil
 import time
 import threading
-
-try:
-    import sentry_sdk
-except ImportError:  # pragma: no cover - optional dependency
-    sentry_sdk = None
+import error_tracker
 
 # --- Configuration ---
 VENV_DIR = Path(__file__).parent / "venv"
@@ -156,16 +152,9 @@ def launch_application():
         print(f"{Colors.YELLOW}Could not find the application script: {MAIN_APP_SCRIPT}{Colors.ENDC}")
 
 if __name__ == "__main__":
-    try:
-        if setup_environment():
-            launch_application()
-    except Exception as exc:  # pragma: no cover - startup wrapper
-        if sentry_sdk:
-            try:
-                sentry_sdk.capture_exception(exc)
-            except Exception:
-                pass
-        raise
-    finally:
-        print("\nPress Enter to exit the launcher.")
-        input()
+    error_tracker.install()
+    if setup_environment():
+        launch_application()
+    
+    print("\nPress Enter to exit the launcher.")
+    input()

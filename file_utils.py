@@ -8,15 +8,14 @@ import sys
 import shutil
 import time
 from pathlib import Path
-import logging
 from logging_utils import setup_logger, log_info, log_error, log_warning
 from datetime import datetime
+from config import LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
 
 logger = setup_logger("file_utils")
 
 def ensure_folders(base_folder=None):
     """Create all necessary application folders on startup."""
-    from config import LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
     
     # List of folders to ensure
     folders = [LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR]
@@ -233,7 +232,7 @@ def copy_file_safely(source_path, dest_path, retries=3, wait_time=1.0):
                 try:
                     # Remove the incomplete file before retrying
                     dest_path.unlink()
-                    log_warning(logger, f"Removed incomplete destination file for retry")
+                    log_warning(logger, "Removed incomplete destination file for retry")
                 except Exception as unlink_err:
                     log_warning(logger, f"Could not remove incomplete file: {unlink_err}")
 
@@ -244,7 +243,7 @@ def copy_file_safely(source_path, dest_path, retries=3, wait_time=1.0):
     if backup_path.exists():
         try:
             shutil.copy2(backup_path, dest_path)
-            log_warning(logger, f"Restored destination from backup after failed copy")
+            log_warning(logger, "Restored destination from backup after failed copy")
         except Exception as restore_err:
             log_error(logger, f"Could not restore from backup: {restore_err}")
             
