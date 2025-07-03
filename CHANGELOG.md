@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v26.0.0 (2025-07-03)
+- Integrated global error tracking with exception hook
+- Updated version numbers across project
+- Added error_tracker module for centralized logging
+
 ## v25.1.1 (2025-07-02)
 - Enhanced OCR processing with image preprocessing for better text extraction
 - Implemented optimized pattern matching with cached regex compilation (10x performance)
