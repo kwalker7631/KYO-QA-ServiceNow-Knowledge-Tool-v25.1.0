@@ -1,6 +1,7 @@
 import queue
 import sys
 import types
+from tests.openpyxl_stub import ensure_openpyxl_stub
 import zipfile
 from pathlib import Path
 import pytest
@@ -12,26 +13,7 @@ fake_ocr_utils = types.ModuleType("ocr_utils")
 fake_ocr_utils.extract_text_from_pdf = lambda p: ""
 fake_ocr_utils._is_ocr_needed = lambda p: False
 sys.modules["ocr_utils"] = fake_ocr_utils
-
-fake_openpyxl = types.ModuleType("openpyxl")
-fake_openpyxl.load_workbook = lambda *a, **k: None
-
-styles_mod = types.ModuleType("openpyxl.styles")
-styles_mod.PatternFill = lambda **kw: None
-sys.modules["openpyxl.styles"] = styles_mod
-
-utils_ex = types.ModuleType("openpyxl.utils.exceptions")
-utils_ex.InvalidFileException = Exception
-sys.modules["openpyxl.utils.exceptions"] = utils_ex
-
-utils_mod = types.ModuleType("openpyxl.utils")
-utils_mod.exceptions = utils_ex
-utils_mod.get_column_letter = lambda x: "A"
-sys.modules["openpyxl.utils"] = utils_mod
-
-fake_openpyxl.styles = styles_mod
-fake_openpyxl.utils = utils_mod
-sys.modules["openpyxl"] = fake_openpyxl
+ensure_openpyxl_stub()
 
 import processing_engine  # noqa: E402
 
