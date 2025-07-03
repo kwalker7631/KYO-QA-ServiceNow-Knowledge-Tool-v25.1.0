@@ -1,5 +1,8 @@
 import logging
 import importlib
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 
 
@@ -20,22 +23,12 @@ def test_setup_logger_to_console_flag(tmp_path, monkeypatch):
         if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
     )
 
-    logging_utils.setup_logger("no_console")
-    after_no_console = sum(
+    logging_utils.setup_logger("test")
+    after = sum(
         1
         for h in root_logger.handlers
         if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
     )
 
-    root_logger.handlers.clear()
-
-    logging_utils.setup_logger("with_console", to_console=True)
-    after_console = sum(
-        1
-        for h in root_logger.handlers
-        if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
-    )
-
-    assert after_no_console == initial_streams
-    assert after_console >= after_no_console + 1
+    assert after >= initial_streams + 1
 

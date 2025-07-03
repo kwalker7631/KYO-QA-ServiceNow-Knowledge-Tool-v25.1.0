@@ -8,7 +8,11 @@ import os
 from pathlib import Path
 from logging_utils import setup_logger, log_info, log_error, log_warning
 import pytesseract
-
+try:
+    from PIL import Image  # type: ignore
+except Exception:  # pragma: no cover - Pillow missing
+    Image = None  # type: ignore
+import io
 import cv2  # OpenCV for image processing
 import numpy as np
 from functools import lru_cache

@@ -1,4 +1,6 @@
 # start_tool.py
+# Version: 26.0.0
+# Last modified: 2025-07-03
 import sys
 import subprocess
 import threading
@@ -6,6 +8,7 @@ import time
 from pathlib import Path
 import shutil
 from version import get_version
+import error_tracker
 
 # --- Configuration ---
 VENV_DIR = Path(__file__).parent / "venv"
@@ -129,6 +132,7 @@ def launch_application():
         print(f"An error occurred: {e}\nPlease check logs for details.")
 
 if __name__ == "__main__":
+    error_tracker.install()
     if setup_environment():
         initialize_colors()
         launch_application()

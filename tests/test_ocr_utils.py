@@ -14,6 +14,12 @@ if 'cv2' not in sys.modules:
     )
     sys.modules['cv2'] = cv2_stub
 
+if 'PIL.Image' not in sys.modules:
+    pil_image_stub = types.SimpleNamespace(open=lambda *a, **k: None)
+    pil_stub = types.SimpleNamespace(Image=pil_image_stub)
+    sys.modules['PIL'] = pil_stub
+    sys.modules['PIL.Image'] = pil_image_stub
+
 if 'fitz' not in sys.modules:
     fitz_stub = types.SimpleNamespace(
         fitz=types.SimpleNamespace(FileDataError=Exception)
@@ -31,6 +37,12 @@ if 'numpy' not in sys.modules:
 if 'pytesseract' not in sys.modules:
     pytesseract_stub = types.SimpleNamespace(image_to_string=lambda *a, **k: "")
     sys.modules['pytesseract'] = pytesseract_stub
+
+# Stub Pillow if not available
+if 'PIL' not in sys.modules:
+    pil_stub = types.ModuleType('PIL')
+    pil_stub.Image = types.SimpleNamespace(open=lambda *a, **k: None)
+    sys.modules['PIL'] = pil_stub
 
 import ocr_utils
 
@@ -63,6 +75,9 @@ class DummyDoc:
 
     def __iter__(self):
         return iter(self.pages)
+
+    def __len__(self):
+        return len(self.pages)
 
 
 def test_extract_text_from_pdf_ocr_failure(monkeypatch, caplog):

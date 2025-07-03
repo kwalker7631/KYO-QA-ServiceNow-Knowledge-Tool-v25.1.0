@@ -8,10 +8,17 @@ import time
 import json
 import openpyxl
 import gc
-import zipfile
 from pathlib import Path
 from datetime import datetime
-from openpyxl.styles import PatternFill, Alignment
+try:
+    from openpyxl.styles import PatternFill, Alignment  # type: ignore
+except Exception:  # pragma: no cover - fallback for test stubs
+    PatternFill = lambda **kw: None  # type: ignore[misc]
+
+    class Alignment:  # pragma: no cover - simple stub
+        def __init__(self, *a, **k) -> None:
+            pass
+
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -21,6 +28,7 @@ from data_harvesters import harvest_all_data
 from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
 from logging_utils import setup_logger, log_error
+import zipfile
 
 logger = setup_logger("processing_engine")
 
@@ -107,23 +115,30 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
         extracted_text = extract_text_from_pdf(absolute_pdf_path)
         
         if not extracted_text or not extracted_text.strip():
-            fail_status = "Needs Review" if ocr_required else "Fail"
-            result = {
-                "filename": filename,
-                "models": "Error: Text Extraction Failed",
-                "author": "",
-                "status": fail_status,
-                "ocr_used": ocr_required,
-                "review_info": None
-            }
-            if fail_status == "Needs Review":
+            status = "Needs Review" if ocr_required else "Fail"
+            review_info = None
+            if status == "Needs Review":
                 review_dir = PDF_TXT_DIR / "needs_review"
                 review_dir.mkdir(exist_ok=True)
                 review_txt_path = review_dir / f"{pdf_path.stem}.txt"
                 with open(review_txt_path, "w", encoding="utf-8") as f:
-                    f.write(f"--- Filename: {filename} ---\n\n{extracted_text}")
-                progress_queue.put({"type": "review_item", "data": {"filename": filename, "reason": "OCR Failed", "txt_path": str(review_txt_path), "pdf_path": str(pdf_path)}})
-            progress_queue.put({"type": "file_complete", "status": fail_status})
+                    f.write(f"File: {filename}\nStatus: Needs Review")
+                review_info = {
+                    "filename": filename,
+                    "reason": "OCR failed",
+                    "txt_path": str(review_txt_path),
+                    "pdf_path": str(pdf_path),
+                }
+                progress_queue.put({"type": "review_item", "data": review_info})
+            result = {
+                "filename": filename,
+                "models": "Error: Text Extraction Failed",
+                "author": "",
+                "status": status,
+                "ocr_used": ocr_required,
+                "review_info": review_info,
+            }
+            progress_queue.put({"type": "file_complete", "status": status})
         else:
             progress_queue.put({"type": "status", "msg": filename, "led": "AI"})
             data = harvest_all_data(extracted_text, filename)
