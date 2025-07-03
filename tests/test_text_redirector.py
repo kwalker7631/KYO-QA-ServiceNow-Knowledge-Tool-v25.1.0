@@ -14,12 +14,6 @@ try:
     from kyo_qa_tool_app import TextRedirector  # noqa: E402
 except Exception:
     class TextRedirector:
-        def __init__(self, q):
-            self.q = q
-
-        def write(self, text):
-            self.q.put(text)
-
 
 def test_text_redirector_write():
     q = queue.Queue()

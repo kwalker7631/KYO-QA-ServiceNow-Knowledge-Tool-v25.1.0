@@ -7,9 +7,7 @@ import shutil
 import time
 import json
 import openpyxl
-import re
 import gc
-from queue import Queue
 from pathlib import Path
 from datetime import datetime
 from openpyxl.styles import PatternFill, Alignment
@@ -17,11 +15,12 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
 from config import META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
-from custom_exceptions import FileLockError, PDFExtractionError
+from custom_exceptions import PDFExtractionError
 from data_harvesters import harvest_all_data
 from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
-from logging_utils import setup_logger, log_info, log_error, log_warning
+from logging_utils import setup_logger, log_error
+import zipfile
 
 logger = setup_logger("processing_engine")
 
@@ -199,7 +198,7 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
         progress_queue.put({"type": "log", "tag": "info", "msg": "Processing job started."})
 
         if is_rerun:
-            progress_queue.put({"type": "log", "tag": "info", "msg": f"Re-running process with updated patterns."})
+            progress_queue.put({"type": "log", "tag": "info", "msg": "Re-running process with updated patterns."})
             clear_review_folder()
             cloned_path = excel_path
         else:
@@ -349,8 +348,8 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
 
             # Save the updated workbook
             workbook.save(cloned_path)
-            progress_queue.put({"type": "log", "tag": "success", 
-                               f"msg": f"Updated {updates_made} rows in Excel file."})
+            progress_queue.put({"type": "log", "tag": "success",
+                               "msg": f"Updated {updates_made} rows in Excel file."})
             progress_queue.put({"type": "result_path", "path": str(cloned_path)})
             progress_queue.put({"type": "finish", "status": "Complete"})
 
@@ -366,3 +365,28 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
     except Exception as e:
         progress_queue.put({"type": "log", "tag": "error", "msg": f"Critical error: {e}"})
         progress_queue.put({"type": "finish", "status": f"Error: {e}"})
+
+
+def _execute_job(job_info, *callbacks):
+    """Internal helper used by ``process_folder``. Overridden in tests."""
+    run_processing_job(job_info, *callbacks)
+
+
+def process_folder(folder, excel_path, *callbacks):
+    """Process a folder of PDFs. Thin wrapper around :func:`_execute_job`."""
+    folder_path = Path(folder)
+    if not folder_path.exists():
+        raise FileNotFoundError(folder)
+    job = {"input_path": folder_path, "excel_path": excel_path}
+    _execute_job(job, *callbacks)
+
+
+def process_zip_archive(zip_path, excel_path, *callbacks):
+    """Extract a ZIP of PDFs and delegate to :func:`process_folder`."""
+    zp = Path(zip_path)
+    if not zipfile.is_zipfile(zp):
+        raise zipfile.BadZipFile("Invalid zip file")
+    extract_dir = zp.with_suffix("").with_name(zp.stem + "_extracted")
+    with zipfile.ZipFile(zp) as zf:
+        zf.extractall(extract_dir)
+    process_folder(extract_dir, excel_path, *callbacks)
