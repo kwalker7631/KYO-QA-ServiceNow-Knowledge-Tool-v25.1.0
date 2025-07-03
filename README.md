@@ -20,7 +20,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
 - **Python 3.11.x (64-bit):** Download Python 3.11.9 Windows Installer or use a portable version in `python-3.11.9` folder.
 - **Tesseract OCR:** Tesseract Windows Installer (UB Mannheim) or place portable binary in `tesseract` folder.
-- **Dependencies:** Listed in `requirements.txt` (auto-installed via `run.py`).
+- **Dependencies:** Listed in `requirements.txt` (auto-installed via `run.py`). No extra packages like `ollama` or `extract` are needed.
 
 ### 2. Folder Structure
 
