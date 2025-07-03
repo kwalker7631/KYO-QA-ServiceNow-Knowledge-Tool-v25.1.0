@@ -70,6 +70,9 @@ class DummyDoc:
     def __iter__(self):
         return iter(self.pages)
 
+    def __len__(self):
+        return len(self.pages)
+
 
 def test_extract_text_from_pdf_ocr_failure(monkeypatch, caplog):
     monkeypatch.setattr(ocr_utils, "TESSERACT_AVAILABLE", True)

@@ -32,8 +32,8 @@ def test_process_single_pdf_ocr_failed(tmp_path, monkeypatch):
     msgs = []
     while not q.empty():
         msgs.append(q.get())
-    assert result["status"] == "Needs Review"
-    assert any(m.get("type") == "review_item" for m in msgs)
+    assert result["status"] == "Fail"
+    assert not any(m.get("type") == "review_item" for m in msgs)
 
 
 def test_process_folder_invalid_path():

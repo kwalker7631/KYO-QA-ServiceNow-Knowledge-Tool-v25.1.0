@@ -1,10 +1,10 @@
-# KYO QA ServiceNow Knowledge Tool v25.1.2
+# KYO QA ServiceNow Knowledge Tool v26.0.0
 
 ## Overview
 
 This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSYS A123abcd`), QA/SB numbers, and descriptions from Kyocera QA/service PDFs using OCR and pattern recognition. It updates blank cells in the "Meta" column of a cloned ServiceNow-compatible Excel file, preserving the original. Text files for documents needing review are saved in `PDF_TXT/needs_review`. No PDFs are retained.
 
-## What's New in v25.1.2
+## What's New in v26.0.0
 
 - **Enhanced OCR Processing**: Improved image preprocessing for better text extraction from scanned documents
 - **Optimized Pattern Matching**: 10x faster regex processing with cached pattern compilation
@@ -21,11 +21,11 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
 - **Python 3.11.x (64-bit):** Download Python 3.11.9 Windows Installer or use a portable version in `python-3.11.9` folder.
 - **Tesseract OCR:** Tesseract Windows Installer (UB Mannheim) or place portable binary in `tesseract` folder.
-- **Dependencies:** Listed in `requirements.txt` (auto-installed via `run.py`).
+- **Dependencies:** Listed in `requirements.txt` (auto-installed via `run.py`). No extra packages like `ollama` or `extract` are needed.
 
 ### 2. Folder Structure
 
-KYO_QA_ServiceNow_Knowledge_Tool_v25.1.2/\
+KYO_QA_ServiceNow_Knowledge_Tool_v26.0.0/\
 ├── START.bat\
 ├── run.py\
 ├── start_tool.py\
@@ -105,7 +105,7 @@ KYO_QA_ServiceNow_Knowledge_Tool_v25.1.2/\
 
 ## Setup Steps
 
-1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v25.1.2`).
+1. Place all files in a folder (e.g., `KYO_QA_ServiceNow_Knowledge_Tool_v26.0.0`).
 2. Install Python 3.11.x or place portable Python in `python-3.11.9`. Optionally, install Tesseract or place in `tesseract` folder.
 3. Run `START.bat` (Windows) or `python run.py`:
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
@@ -119,7 +119,7 @@ KYO_QA_ServiceNow_Knowledge_Tool_v25.1.2/\
 4. Manual setup (if needed):
 
    ```bash
-   cd KYO_QA_ServiceNow_Knowledge_Tool_v25.1.2
+   cd KYO_QA_ServiceNow_Knowledge_Tool_v26.0.0
    rmdir /S /Q venv
    python -m venv venv
    venv\Scripts\python.exe -m ensurepip --default-pip
@@ -165,12 +165,12 @@ Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `col
 
 ## Versioning
 
-- Current version: **v25.1.2**
+- Current version: **v26.0.0**
 - Updates tracked in `CHANGELOG.md`.
 - Use `update_version.py` to change versions:
 
   ```bash
-  python update_version.py v25.1.2 v25.1.3
+  python update_version.py v25.1.2 v26.0.0
   ```
 
 ## Logging

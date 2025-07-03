@@ -1,4 +1,4 @@
-# KYO QA ServiceNow Knowledge Tool v25.1.2 - Usage Instructions
+# KYO QA ServiceNow Knowledge Tool v26.0.0 - Usage Instructions
 
 ## Basic Usage
 
