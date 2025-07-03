@@ -13,7 +13,14 @@ import logging
 import os
 import traceback
 
-from error_reporter import report_error_to_ai
+# Only try to import error_reporter after dependencies are installed
+def safe_import_error_reporter():
+    """Safely import error_reporter module, returning None if not available."""
+    try:
+        from error_reporter import report_error_to_ai
+        return report_error_to_ai
+    except ImportError:
+        return None
 
 logging.basicConfig(
     level=logging.INFO,
@@ -160,7 +167,12 @@ def setup_environment():
             "commit": get_git_commit(),
         }
         logging.exception("setup_environment failed")
-        report_error_to_ai(exc, context)
+        
+        # Try to report error only if dependencies are available
+        report_error_to_ai = safe_import_error_reporter()
+        if report_error_to_ai:
+            report_error_to_ai(exc, context)
+        
         raise
 
 def launch_application():
@@ -182,7 +194,12 @@ def launch_application():
             "commit": get_git_commit(),
         }
         logging.exception("launch_application crashed")
-        report_error_to_ai(exc, context)
+        
+        # Try to report error only if dependencies are available
+        report_error_to_ai = safe_import_error_reporter()
+        if report_error_to_ai:
+            report_error_to_ai(exc, context)
+        
         raise
     except FileNotFoundError as exc:
         print(f"\n{Colors.RED}--- LAUNCH FAILED ---{Colors.ENDC}")
@@ -194,14 +211,24 @@ def launch_application():
             "commit": get_git_commit(),
         }
         logging.exception("launch_application failed")
-        report_error_to_ai(exc, context)
+        
+        # Try to report error only if dependencies are available
+        report_error_to_ai = safe_import_error_reporter()
+        if report_error_to_ai:
+            report_error_to_ai(exc, context)
+        
         raise
 
 if __name__ == "__main__":
     try:
         if setup_environment():
-            import error_tracker
-            error_tracker.init_error_tracker()
+            # Only try to initialize error tracker after dependencies are installed
+            try:
+                import error_tracker
+                error_tracker.init_error_tracker()
+            except ImportError:
+                print(f"{Colors.YELLOW}Note: Error tracking not available (optional dependency){Colors.ENDC}")
+            
             launch_application()
     except Exception as exc:
         context = {
@@ -212,7 +239,12 @@ if __name__ == "__main__":
             "commit": get_git_commit(),
         }
         logging.exception("launcher failed")
-        report_error_to_ai(exc, context)
+        
+        # Try to report error only if dependencies are available
+        report_error_to_ai = safe_import_error_reporter()
+        if report_error_to_ai:
+            report_error_to_ai(exc, context)
+        
         raise
 
     print("\nPress Enter to exit the launcher.")

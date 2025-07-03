@@ -1,6 +1,6 @@
 # ocr_utils.py
-# Version: 25.1.0
-# Last modified: 2025-07-02
+# Version: 26.0.0
+# Last modified: 2025-07-03
 # Utilities for extracting text from PDFs, including OCR for image-based documents
 
 import fitz  # PyMuPDF
@@ -9,11 +9,11 @@ from pathlib import Path
 from logging_utils import setup_logger, log_info, log_error, log_warning
 import pytesseract
 try:
-    from PIL import Image  # type: ignore
-except Exception:  # pragma: no cover - Pillow missing
-    Image = None  # type: ignore
+    from PIL import Image
+except Exception:
+    Image = None
 import io
-import cv2  # OpenCV for image processing
+import cv2
 import numpy as np
 from functools import lru_cache
 from custom_exceptions import PDFExtractionError
@@ -58,28 +58,17 @@ def init_tesseract():
 
 TESSERACT_AVAILABLE = init_tesseract()
 
-@lru_cache(maxsize=32)
 def _open_pdf(pdf_path, password=None):
     """
-    Opens a PDF file with error handling and password support.
+    Opens a PDF file with error handling.
     Returns a fitz.Document object or raises an exception.
     """
     try:
-        return fitz.open(pdf_path, password=password)
-    except fitz.FileDataError as e:
-        # If the file appears to be encrypted, try asking for a password
-        if "password" in str(e).lower() and password is None:
-            # This would be replaced with a GUI dialog in the full implementation
-            log_warning(logger, f"PDF may be password protected: {pdf_path}")
-            raise PDFExtractionError(f"Password protected PDF: {e}")
-        else:
-            log_error(logger, f"Cannot open PDF: {e}")
-            raise PDFExtractionError(f"Invalid PDF file: {e}")
-    except PermissionError as e:
-        log_error(logger, f"Permission denied accessing PDF: {e}")
-        raise PDFExtractionError(f"Permission denied: {e}")
+        # Use the simpler fitz.open() without password parameter
+        doc = fitz.open(pdf_path)
+        return doc
     except Exception as e:
-        log_error(logger, f"Unexpected error opening PDF: {e}")
+        log_error(logger, f"Cannot open PDF {Path(pdf_path).name}: {e}")
         raise PDFExtractionError(f"Failed to open PDF: {e}")
 
 def _is_ocr_needed(pdf_path):
@@ -88,20 +77,32 @@ def _is_ocr_needed(pdf_path):
     Returns True if OCR is needed, False otherwise.
     """
     try:
-        with _open_pdf(pdf_path) as doc:
-            if not doc.is_pdf or doc.is_encrypted:
+        doc = _open_pdf(pdf_path)
+        try:
+            if not doc.is_pdf:
                 return False
             
             # Check the total text length of the document
-            text_length = sum(len(page.get_text("text")) for page in doc)
+            text_length = 0
+            for page in doc:
+                try:
+                    text_length += len(page.get_text("text"))
+                    if text_length > 150:  # Early exit if we have enough text
+                        break
+                except Exception:
+                    continue
+            
+            doc.close()
             return text_length < 150  # Threshold can be adjusted
+        except Exception:
+            doc.close()
+            return True
     except PDFExtractionError as e:
         log_warning(logger, f"Could not pre-check PDF {Path(pdf_path).name} for OCR needs: {e}")
         return True  # Default to True if we can't check
     except Exception as e:
         log_warning(logger, f"Error during OCR check for {Path(pdf_path).name}: {e}")
         return True  # Default to True if any error occurs
-    return False
 
 def extract_text_from_pdf(pdf_path):
     """
@@ -138,19 +139,21 @@ def extract_text_from_pdf(pdf_path):
                 
         # Proceed with regular extraction
         text = ""
-        with _open_pdf(pdf_path) as doc:
-            try:
-                page_count = len(doc)
-            except Exception:
-                page_count = 0
-            # Process pages in parallel for large documents
-            if page_count > 10:
-                from concurrent.futures import ThreadPoolExecutor
-                with ThreadPoolExecutor(max_workers=min(8, page_count)) as executor:
-                    page_texts = list(executor.map(lambda p: p.get_text(), doc))
-                    text = "".join(page_texts)
-            else:
-                text = "".join(page.get_text() for page in doc)
+        doc = _open_pdf(pdf_path)
+        try:
+            page_count = len(doc)
+            
+            # Process pages sequentially for better reliability
+            for page in doc:
+                try:
+                    page_text = page.get_text()
+                    text += page_text
+                except Exception as e:
+                    log_warning(logger, f"Error extracting text from page in {pdf_path.name}: {e}")
+                    continue
+                    
+        finally:
+            doc.close()
 
         # If text is found and OCR is not explicitly needed, cache it and return
         if text and len(text.strip()) > 50:
@@ -202,34 +205,40 @@ def extract_text_with_ocr(pdf_path):
         
     all_text = []
     try:
-        with _open_pdf(pdf_path) as doc:
+        doc = _open_pdf(pdf_path)
+        try:
             for page_num, page in enumerate(doc):
-                # 1. Render page at a higher DPI for better quality
-                pix = page.get_pixmap(dpi=300)
-                img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
-                
-                # 2. Convert to OpenCV format (from RGB to BGR)
-                img_cv = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
+                try:
+                    # 1. Render page at a higher DPI for better quality
+                    pix = page.get_pixmap(dpi=300)
+                    img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
+                    
+                    # 2. Convert to OpenCV format (from RGB to BGR)
+                    img_cv = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
 
-                # 3. Pre-process the image for better OCR accuracy
-                # Convert to grayscale
-                gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-                # Apply adaptive thresholding to get a clean black and white image
-                binary_img = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-                
-                # Additional preprocessing for better OCR results
-                # Remove noise using median blur
-                processed_img = cv2.medianBlur(binary_img, 3)
-                
-                # 4. Use Tesseract to do OCR on the processed image
-                # lang='eng' for English. Add other languages like 'jpn' if needed (e.g., 'eng+jpn')
-                # --psm 6 assumes a single uniform block of text, often good for technical docs.
-                custom_config = r'--oem 3 --psm 6'
-                page_text = pytesseract.image_to_string(processed_img, lang='eng', config=custom_config)
-                
-                all_text.append(page_text)
-                log_info(logger, f"OCR processed page {page_num+1} of {pdf_path.name}")
-                
+                    # 3. Pre-process the image for better OCR accuracy
+                    # Convert to grayscale
+                    gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+                    # Apply adaptive thresholding to get a clean black and white image
+                    binary_img = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+                    
+                    # Additional preprocessing for better OCR results
+                    # Remove noise using median blur
+                    processed_img = cv2.medianBlur(binary_img, 3)
+                    
+                    # 4. Use Tesseract to do OCR on the processed image
+                    custom_config = r'--oem 3 --psm 6'
+                    page_text = pytesseract.image_to_string(processed_img, lang='eng', config=custom_config)
+                    
+                    all_text.append(page_text)
+                    log_info(logger, f"OCR processed page {page_num+1} of {pdf_path.name}")
+                except Exception as e:
+                    log_warning(logger, f"OCR failed for page {page_num+1} in {pdf_path.name}: {e}")
+                    continue
+                    
+        finally:
+            doc.close()
+            
         result = "\n\n".join(all_text)
         log_info(logger, f"OCR extraction complete for {pdf_path.name}: {len(result)} chars")
         return result
@@ -248,12 +257,12 @@ def get_pdf_metadata(pdf_path):
         dict: Dictionary containing PDF metadata
     """
     try:
-        with _open_pdf(pdf_path) as doc:
+        doc = _open_pdf(pdf_path)
+        try:
             metadata = doc.metadata
-            try:
-                page_count = len(doc)
-            except Exception:
-                page_count = 0
+            page_count = len(doc)
+        finally:
+            doc.close()
 
         result = {
             "title": metadata.get("title", ""),

@@ -1,107 +1,241 @@
-# file_utils.py - Enhanced file and directory management
+# file_utils.py
+# Version: 26.0.0
+# Last modified: 2025-07-03
+# Essential file and directory management utilities
+
 import shutil
-from pathlib import Path
 import os
 import sys
+from pathlib import Path
 
-from logging_utils import setup_logger, log_info, log_error
-from config import PDF_TXT_DIR
+# Import config without logging to avoid circular imports
+from config import (
+    OUTPUT_DIR,
+    LOGS_DIR,
+    NEED_REVIEW_DIR,
+    OCR_FAILED_DIR,
+    PDF_TXT_DIR,
+    CACHE_DIR,
+)
 
-logger = setup_logger("file_management")
 
-def ensure_review_folders():
+def is_file_locked(file_path):
     """
-    Ensure NEED_REVIEW and OCR_FAILED folders exist.
-    Rename existing PDF_TXT to NEED_REVIEW if needed.
+    Check if a file is locked by another process.
+    
+    Args:
+        file_path: Path to the file to check
+        
+    Returns:
+        bool: True if file is locked, False otherwise
+    """
+    file_path = Path(file_path)
+    
+    if not file_path.exists():
+        return False
+    
+    try:
+        if sys.platform == "win32":
+            # On Windows, try to open the file for writing
+            try:
+                with open(file_path, 'r+b') as f:
+                    pass
+                return False
+            except (OSError, PermissionError):
+                return True
+        else:
+            # On Unix-like systems, try fcntl if available
+            try:
+                import fcntl
+                with open(file_path, 'r+b') as f:
+                    fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(f, fcntl.LOCK_UN)
+                return False
+            except ImportError:
+                # fcntl not available, use simple file access test
+                try:
+                    with open(file_path, 'r+b') as f:
+                        pass
+                    return False
+                except (OSError, IOError):
+                    return True
+            except (OSError, IOError):
+                return True
+    except Exception:
+        return False
+
+
+def ensure_folders():
+    """
+    Ensure all required directories exist.
+    Create missing directories and migrate old folder structures.
     """
     try:
-        # Ensure base directory exists
-        base_dir = Path(PDF_TXT_DIR)
-        base_dir.mkdir(parents=True, exist_ok=True)
+        # List of directories that need to exist
+        required_dirs = [
+            OUTPUT_DIR,
+            LOGS_DIR,
+            CACHE_DIR,
+            NEED_REVIEW_DIR,
+            OCR_FAILED_DIR,
+        ]
+        
+        # Create all required directories
+        for directory in required_dirs:
+            directory.mkdir(parents=True, exist_ok=True)
+            
+        # Create needs_review subdirectory
+        needs_review_subdir = NEED_REVIEW_DIR / "needs_review"
+        needs_review_subdir.mkdir(parents=True, exist_ok=True)
+        
+        # Handle legacy PDF_TXT directory migration
+        old_pdf_txt = Path("PDF_TXT")
+        if old_pdf_txt.exists() and old_pdf_txt != NEED_REVIEW_DIR:
+            try:
+                # Move contents to new location
+                for item in old_pdf_txt.iterdir():
+                    dest = NEED_REVIEW_DIR / item.name
+                    if item.is_file():
+                        shutil.move(str(item), str(dest))
+                    elif item.is_dir():
+                        shutil.move(str(item), str(dest))
+                
+                # Remove old directory if empty
+                if not any(old_pdf_txt.iterdir()):
+                    old_pdf_txt.rmdir()
+            except Exception:
+                pass  # Silently ignore migration errors
+        
+    except Exception:
+        pass  # Silently ignore folder creation errors for now
 
-        # Check and rename existing PDF_TXT if it exists
-        if base_dir.exists() and base_dir.name == "PDF_TXT":
-            new_name = base_dir.with_name("NEED_REVIEW")
-            base_dir.rename(new_name)
-            log_info(logger, f"Renamed {base_dir} to {new_name}")
 
-        # Create NEED_REVIEW and OCR_FAILED folders
-        need_review_dir = base_dir / "NEED_REVIEW"
-        ocr_failed_dir = base_dir / "OCR_FAILED"
-
-        need_review_dir.mkdir(parents=True, exist_ok=True)
-        ocr_failed_dir.mkdir(parents=True, exist_ok=True)
-
-        return need_review_dir, ocr_failed_dir
-    except Exception as e:
-        log_error(logger, f"Error setting up review folders: {e}")
-        return None, None
-
-def move_to_review_folder(file_path, reason='', folder_type='NEED_REVIEW'):
+def move_to_folder(file_path, dest_folder, reason=""):
     """
-    Move a file to the appropriate review folder with logging.
+    Move a file to a destination folder.
     
     Args:
         file_path: Path to the file to move
+        dest_folder: Destination folder path
         reason: Reason for moving the file
-        folder_type: 'NEED_REVIEW' or 'OCR_FAILED'
-    
+        
     Returns:
-        Path to the new location of the file
+        Path: New location of the file, or None if move failed
     """
     try:
         file_path = Path(file_path)
-        need_review_dir, ocr_failed_dir = ensure_review_folders()
+        dest_folder = Path(dest_folder)
         
-        if folder_type == 'NEED_REVIEW':
-            dest_dir = need_review_dir
-        elif folder_type == 'OCR_FAILED':
-            dest_dir = ocr_failed_dir
-        else:
-            log_error(logger, f"Invalid folder type: {folder_type}")
-            return None
+        # Ensure destination folder exists
+        dest_folder.mkdir(parents=True, exist_ok=True)
         
-        dest_path = dest_dir / file_path.name
-        
-        # Ensure unique filename if one already exists
+        # Generate unique destination filename
+        dest_path = dest_folder / file_path.name
         counter = 1
         while dest_path.exists():
-            dest_path = dest_dir / f"{file_path.stem}_{counter}{file_path.suffix}"
+            dest_path = dest_folder / f"{file_path.stem}_{counter}{file_path.suffix}"
             counter += 1
         
         # Move the file
         shutil.move(str(file_path), str(dest_path))
-        
-        log_info(logger, f"Moved {file_path.name} to {dest_path} - Reason: {reason}")
         return dest_path
-    except Exception as e:
-        log_error(logger, f"Error moving {file_path} to review folder: {e}")
+        
+    except Exception:
         return None
 
-def open_review_folder():
+
+def open_file(file_path):
     """
-    Open the NEED_REVIEW folder in the system's file browser.
+    Open a file or directory with the default system application.
     
+    Args:
+        file_path: Path to file or directory to open
+        
     Returns:
         bool: True if successful, False otherwise
     """
     try:
-        need_review_dir, _ = ensure_review_folders()
+        file_path = Path(file_path)
         
-        if not need_review_dir:
-            log_error(logger, "Could not locate NEED_REVIEW folder")
+        if not file_path.exists():
             return False
         
-        # Platform-specific file browser opening
-        if sys.platform == 'win32':
-            os.startfile(str(need_review_dir))
-        elif sys.platform == 'darwin':  # macOS
-            os.system(f'open "{need_review_dir}"')
-        else:  # linux variants
-            os.system(f'xdg-open "{need_review_dir}"')
+        if sys.platform == "win32":
+            os.startfile(str(file_path))
+        elif sys.platform == "darwin":  # macOS
+            import subprocess
+            subprocess.run(["open", str(file_path)])
+        else:  # Linux and other Unix-like systems
+            import subprocess
+            subprocess.run(["xdg-open", str(file_path)])
         
-        log_info(logger, f"Opened NEED_REVIEW folder: {need_review_dir}")
         return True
-    except Exception as e:
-        log_error(logger, f"Error opening review folder: {e}")
+        
+    except Exception:
+        return False
+
+
+def get_safe_filename(filename, max_length=255):
+    """
+    Convert a string to a safe filename by removing/replacing invalid characters.
+    
+    Args:
+        filename: Original filename string
+        max_length: Maximum length for the filename
+        
+    Returns:
+        str: Safe filename string
+    """
+    import re
+    
+    # Remove invalid characters
+    safe_name = re.sub(r'[<>:"/\\|?*]', '_', str(filename))
+    
+    # Remove control characters
+    safe_name = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', safe_name)
+    
+    # Limit length
+    if len(safe_name) > max_length:
+        name_part = safe_name[:max_length-4]
+        safe_name = name_part + "..."
+    
+    # Ensure it's not empty
+    if not safe_name.strip():
+        safe_name = "unnamed_file"
+    
+    return safe_name.strip()
+
+
+def copy_with_backup(source, destination, backup_suffix=".bak"):
+    """
+    Copy a file to destination, creating a backup if destination exists.
+    
+    Args:
+        source: Source file path
+        destination: Destination file path
+        backup_suffix: Suffix for backup file
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        source = Path(source)
+        destination = Path(destination)
+        
+        if not source.exists():
+            return False
+        
+        # Create backup if destination exists
+        if destination.exists():
+            backup_path = destination.with_suffix(destination.suffix + backup_suffix)
+            shutil.copy2(str(destination), str(backup_path))
+        
+        # Ensure destination directory exists
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Copy the file
+        shutil.copy2(str(source), str(destination))
+        return True
+        
+    except Exception:
         return False
