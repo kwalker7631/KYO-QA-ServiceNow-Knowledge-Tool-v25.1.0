@@ -11,12 +11,12 @@ from pathlib import Path
 import logging
 from logging_utils import setup_logger, log_info, log_error, log_warning
 from datetime import datetime
+from config import LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
 
 logger = setup_logger("file_utils")
 
 def ensure_folders(base_folder=None):
     """Create all necessary application folders on startup."""
-    from config import LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
     
     # List of folders to ensure
     folders = [LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR]
