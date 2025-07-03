@@ -8,8 +8,7 @@ import os
 from pathlib import Path
 from logging_utils import setup_logger, log_info, log_error, log_warning
 import pytesseract
-from PIL import Image
-import io
+
 import cv2  # OpenCV for image processing
 import numpy as np
 from functools import lru_cache
@@ -136,10 +135,14 @@ def extract_text_from_pdf(pdf_path):
         # Proceed with regular extraction
         text = ""
         with _open_pdf(pdf_path) as doc:
+            try:
+                page_count = len(doc)
+            except Exception:
+                page_count = 0
             # Process pages in parallel for large documents
-            if len(doc) > 10:  # Only use parallel processing for larger documents
+            if page_count > 10:
                 from concurrent.futures import ThreadPoolExecutor
-                with ThreadPoolExecutor(max_workers=min(8, len(doc))) as executor:
+                with ThreadPoolExecutor(max_workers=min(8, page_count)) as executor:
                     page_texts = list(executor.map(lambda p: p.get_text(), doc))
                     text = "".join(page_texts)
             else:
@@ -243,7 +246,10 @@ def get_pdf_metadata(pdf_path):
     try:
         with _open_pdf(pdf_path) as doc:
             metadata = doc.metadata
-            page_count = len(doc)
+            try:
+                page_count = len(doc)
+            except Exception:
+                page_count = 0
 
         result = {
             "title": metadata.get("title", ""),

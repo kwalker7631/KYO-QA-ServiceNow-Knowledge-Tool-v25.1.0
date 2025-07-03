@@ -37,7 +37,7 @@ class QtWidgetHandler(logging.Handler):
             self.handleError(record)
 
 
-def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logger:
+def setup_logger(name: str, level=logging.INFO, log_widget=None, to_console=False) -> logging.Logger:
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)-8s] [%(name)-20s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
@@ -54,9 +54,10 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logg
         )
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        root_logger.addHandler(console_handler)
+        if to_console:
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+            root_logger.addHandler(console_handler)
 
         root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
 

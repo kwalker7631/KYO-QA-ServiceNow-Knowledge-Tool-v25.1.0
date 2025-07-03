@@ -6,6 +6,7 @@
 import re
 import importlib
 import functools
+from pathlib import Path
 from config import (
     MODEL_PATTERNS as DEFAULT_MODEL_PATTERNS,
     QA_NUMBER_PATTERNS as DEFAULT_QA_PATTERNS,

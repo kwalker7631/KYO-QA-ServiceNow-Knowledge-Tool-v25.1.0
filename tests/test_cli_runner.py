@@ -11,6 +11,7 @@ openpyxl_stub = types.ModuleType("openpyxl")
 openpyxl_stub.load_workbook = lambda *a, **k: None
 openpyxl_stub.styles = types.ModuleType("openpyxl.styles")
 openpyxl_stub.styles.PatternFill = lambda **kw: None
+openpyxl_stub.styles.Alignment = lambda **kw: None
 openpyxl_stub.utils = types.ModuleType("openpyxl.utils")
 openpyxl_stub.utils.get_column_letter = lambda x: "A"
 openpyxl_stub.utils.exceptions = types.ModuleType("openpyxl.utils.exceptions")

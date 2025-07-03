@@ -18,6 +18,7 @@ fake_openpyxl.load_workbook = lambda *a, **k: None
 
 styles_mod = types.ModuleType("openpyxl.styles")
 styles_mod.PatternFill = lambda **kw: None
+styles_mod.Alignment = lambda **kw: None
 sys.modules["openpyxl.styles"] = styles_mod
 
 utils_ex = types.ModuleType("openpyxl.utils.exceptions")
