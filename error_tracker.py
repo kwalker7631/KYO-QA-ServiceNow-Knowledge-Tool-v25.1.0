@@ -1,41 +1,28 @@
-# error_tracker.py
-# Version: 26.0.0
-# Last modified: 2025-07-03
-"""Simple error tracking and exception hook setup."""
-
-import logging
 import os
-import sys
-from pathlib import Path
+import logging
 
-from logging_utils import setup_logger, log_exception
+from sentry_sdk import init
+from sentry_sdk.integrations.logging import LoggingIntegration, EventHandler
 
-_logger = setup_logger("error_tracker")
-
-ERROR_FILE = Path("error_log.txt")
-
-
-def _write_error_file(exc_type, exc, tb):
-    """Append exception details to error_log.txt with stack trace."""
-    with ERROR_FILE.open("a", encoding="utf-8") as f:
-        f.write(f"{exc_type.__name__}: {exc}\n")
-        import traceback
-        traceback.print_tb(tb, file=f)
-        f.write("\n")
+_initialized = False
+_handler: logging.Handler | None = None
 
 
-def exception_hook(exc_type, exc, tb):
-    """Global exception hook that logs and writes errors."""
-    log_exception(_logger, "Unhandled exception")
-    _write_error_file(exc_type, exc, tb)
-    if _prev_hook:
-        _prev_hook(exc_type, exc, tb)
+def init_error_tracker() -> bool:
+    """Initialize Sentry error tracking if a DSN is provided."""
+    global _initialized, _handler
+    if _initialized:
+        return True
+    dsn = os.getenv("SENTRY_DSN")
+    if not dsn:
+        return False
+    sentry_logging = LoggingIntegration(level=logging.ERROR, event_level=logging.ERROR)
+    init(dsn=dsn, integrations=[sentry_logging])
+    _handler = EventHandler(level=logging.ERROR)
+    _initialized = True
+    return True
 
-_prev_hook = sys.excepthook
 
-
-def install():
-    """Install global exception hook for error tracking."""
-    sys.excepthook = exception_hook
-
-
+def get_handler() -> logging.Handler | None:
+    """Return the Sentry logging handler if initialized."""
+    return _handler

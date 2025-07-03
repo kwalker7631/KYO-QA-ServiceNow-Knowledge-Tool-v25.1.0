@@ -13,6 +13,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 - **Organized Review Files**: Review files now stored in dedicated subfolder for easier management
 - **Memory Optimization**: Better memory management for processing large batches of files
 - **Bug Fixes**: Resolved critical issues with pattern processing and UI components
+- **Sentry Error Reporting**: Optional cloud-based error logging when `SENTRY_DSN` is set
 
 ## How to Set Up and Run
 
@@ -20,7 +21,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 
 - **Python 3.11.x (64-bit):** Download Python 3.11.9 Windows Installer or use a portable version in `python-3.11.9` folder.
 - **Tesseract OCR:** Tesseract Windows Installer (UB Mannheim) or place portable binary in `tesseract` folder.
-- **Dependencies:** Listed in `requirements.txt` (auto-installed via `run.py`).
+- **Dependencies:** Listed in `requirements.txt` (auto-installed via `run.py`). No extra packages like `ollama` or `extract` are needed.
 
 ### 2. Folder Structure
 
@@ -109,6 +110,12 @@ KYO_QA_ServiceNow_Knowledge_Tool_v26.0.0/\
 3. Run `START.bat` (Windows) or `python run.py`:
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
    - Outputs logs to `/logs/` and Excel to `/output/`.
+   - Set `SENTRY_DSN` in your environment to enable cloud error reporting.
+   
+     ```cmd
+     C:\> set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+     C:\> START.bat
+     ```
 4. Manual setup (if needed):
 
    ```bash
@@ -163,7 +170,7 @@ Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `col
 - Use `update_version.py` to change versions:
 
   ```bash
-  python update_version.py v26.0.0 v26.0.1
+  python update_version.py v25.1.2 v26.0.0
   ```
 
 ## Logging
@@ -171,6 +178,10 @@ Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `col
 - Session logs in `/logs/[YYYY-MM-DD_HH-MM-SS]_session.log`.
 - Success/failure logs as `[YYYYMMDD]_SUCCESSlog.md` or `FAILlog.md` in `/logs/`.
 - Text files for documents needing review (e.g., failed model extraction) in `/PDF_TXT/needs_review/*.txt`.
+- Optional Sentry reporting: set the environment variable `SENTRY_DSN` with your project DSN to forward errors to Sentry.
+   ```cmd
+   set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+   ```
 
 ## Portable Deployment
 
