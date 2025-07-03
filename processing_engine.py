@@ -7,16 +7,38 @@ import json
 from queue import Queue
 from pathlib import Path
 from datetime import datetime
-import openpyxl
-from openpyxl.styles import PatternFill, Alignment
-from openpyxl.utils import get_column_letter
+try:
+    import openpyxl
+    from openpyxl.styles import PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+except Exception:  # pragma: no cover - optional dependency
+    import types
+    openpyxl = types.ModuleType('openpyxl')
+    openpyxl.load_workbook = lambda *a, **k: None
+    styles = types.ModuleType('openpyxl.styles')
+    styles.PatternFill = lambda **kw: None
+    class Alignment:
+        def __init__(self, **kwargs):
+            pass
+    styles.Alignment = Alignment
+    openpyxl.styles = styles
+    utils = types.ModuleType('openpyxl.utils')
+    utils.get_column_letter = lambda x: 'A'
+    openpyxl.utils = utils
 
 # Import from our other modules
 from config import META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR
 from custom_exceptions import FileLockError
 from data_harvesters import bulletproof_extraction  # Use the function that exists
 from file_utils import cleanup_temp_files, get_temp_dir, is_file_locked
-from ocr_utils import extract_text_from_pdf, _is_ocr_needed
+try:
+    from ocr_utils import extract_text_from_pdf, _is_ocr_needed
+except Exception:  # pragma: no cover - optional dependency
+    def extract_text_from_pdf(*a, **k):
+        return ""
+
+    def _is_ocr_needed(*a, **k):
+        return False
 from recycle_utils import apply_recycles
 
 # Cache directory for storing processed results

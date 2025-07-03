@@ -6,7 +6,10 @@ import subprocess
 import traceback
 from pathlib import Path
 
-from anthropic import Anthropic
+try:
+    from anthropic import Anthropic
+except Exception:  # pragma: no cover - optional dependency
+    Anthropic = None
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,7 +17,10 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+if Anthropic:
+    client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+else:  # pragma: no cover - client unavailable in minimal installs
+    client = None
 
 PATCHES_FILE = Path(".ai_suggestions.json")
 
@@ -65,6 +71,9 @@ def report_error_to_ai(exc: Exception, context: dict) -> None:
         "Suggest a patch (file, line numbers, replacement) to fix it:\n"
         f"{json.dumps(payload, indent=2)}"
     )
+    if not client:
+        logging.info("Anthropic client not configured")
+        return
     try:  # pragma: no cover - external call
         resp = client.messages.create(
             model="claude-3-5-sonnet-latest",
