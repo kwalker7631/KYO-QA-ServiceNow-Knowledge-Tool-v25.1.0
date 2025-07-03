@@ -13,6 +13,7 @@ This tool extracts model numbers (e.g., `PF-740`, `TASKalfa AB-1234abcd`, `ECOSY
 - **Organized Review Files**: Review files now stored in dedicated subfolder for easier management
 - **Memory Optimization**: Better memory management for processing large batches of files
 - **Bug Fixes**: Resolved critical issues with pattern processing and UI components
+- **Sentry Error Reporting**: Optional cloud-based error logging when `SENTRY_DSN` is set
 
 ## How to Set Up and Run
 
@@ -110,6 +111,11 @@ KYO_QA_ServiceNow_Knowledge_Tool_v26.0.0/\
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
    - Outputs logs to `/logs/` and Excel to `/output/`.
    - Set `SENTRY_DSN` in your environment to enable cloud error reporting.
+   
+     ```cmd
+     C:\> set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+     C:\> START.bat
+     ```
 4. Manual setup (if needed):
 
    ```bash
@@ -173,6 +179,9 @@ Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `col
 - Success/failure logs as `[YYYYMMDD]_SUCCESSlog.md` or `FAILlog.md` in `/logs/`.
 - Text files for documents needing review (e.g., failed model extraction) in `/PDF_TXT/needs_review/*.txt`.
 - Optional Sentry reporting: set the environment variable `SENTRY_DSN` with your project DSN to forward errors to Sentry.
+   ```cmd
+   set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+   ```
 
 ## Portable Deployment
 
