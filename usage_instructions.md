@@ -9,11 +9,7 @@
    - Selecting individual PDF files
 4. **Click "START"** to begin processing
 5. **Monitor progress** with the status indicators, progress bar, and logs
-6. *(Optional)* **Enable error reporting** by setting the `SENTRY_DSN` environment variable before running:
-   ```cmd
-   set SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
-   ```
-   This forwards errors to your Sentry project for easier troubleshooting.
+6. *(Optional)* **Enable error reporting** by following the instructions in the [Error Reporting](#error-reporting) section.
 
 ## PDF Processing & OCR
 
