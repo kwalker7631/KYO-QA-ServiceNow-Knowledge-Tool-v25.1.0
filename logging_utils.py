@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+import error_tracker
 
 LOG_DIR = Path.cwd() / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -57,6 +58,12 @@ def setup_logger(name: str, level=logging.INFO, log_widget=None) -> logging.Logg
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
+
+        if error_tracker.init_error_tracker():
+            sentry_handler = error_tracker.get_handler()
+            if sentry_handler:
+                sentry_handler.setFormatter(formatter)
+                root_logger.addHandler(sentry_handler)
 
         root_logger.info(f"Logging initialized for session. Log file: {SESSION_LOG_FILE}")
 
