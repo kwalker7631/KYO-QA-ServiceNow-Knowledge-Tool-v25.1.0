@@ -188,11 +188,12 @@ class KyoQAToolApp(tk.Tk):
             return []
 
         input_base = Path(self.last_run_info.get("input_path", ""))
-        if not PDF_TXT_DIR.exists():
+        needs_review_dir = PDF_TXT_DIR / "needs_review"
+        if not needs_review_dir.exists():
             return []
 
         review_pdfs: list[str] = []
-        for txt_file in PDF_TXT_DIR.glob("*.txt"):
+        for txt_file in needs_review_dir.glob("*.txt"):
             try:
                 text = txt_file.read_text(encoding="utf-8")
             except Exception:
