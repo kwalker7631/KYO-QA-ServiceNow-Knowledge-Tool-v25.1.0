@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v26.0.0 (2025-07-03)
+- Bumped major version and updated all documentation
+- Version references refreshed across scripts
+
+
 ## v25.1.1 (2025-07-02)
 - Enhanced OCR processing with image preprocessing for better text extraction
 - Implemented optimized pattern matching with cached regex compilation (10x performance)

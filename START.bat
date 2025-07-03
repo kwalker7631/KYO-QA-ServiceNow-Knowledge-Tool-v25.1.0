@@ -1,6 +1,6 @@
 @echo off
-title KYO QA Tool Launcher v25.1.2
-echo Starting KYO QA ServiceNow Knowledge Tool v25.1.2...
+title KYO QA Tool Launcher v26.0.0
+echo Starting KYO QA ServiceNow Knowledge Tool v26.0.0...
 echo This console window will remain open during operation.
 python run.py
 if %errorlevel% neq 0 (
