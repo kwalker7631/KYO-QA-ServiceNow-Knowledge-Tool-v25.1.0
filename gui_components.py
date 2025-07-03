@@ -50,6 +50,15 @@ def create_process_controls(parent, app):
     
     app.fullscreen_btn = ttk.Button(ctrl, text=" Fullscreen", image=app.fullscreen_icon, compound="left", command=app.toggle_fullscreen)
     app.fullscreen_btn.grid(row=2, column=1, sticky="ew", pady=2)
+
+    app.open_review_btn = ttk.Button(
+        ctrl,
+        text=" Open Review Folder",
+        image=app.open_icon,
+        compound="left",
+        command=app.open_review_folder,
+    )
+    app.open_review_btn.grid(row=2, column=2, sticky="ew", pady=2)
     
     app.exit_btn = ttk.Button(ctrl, text=" Exit", image=app.exit_icon, compound="left", command=app.on_closing)
     app.exit_btn.grid(row=2, column=3, sticky="ew", pady=2)
