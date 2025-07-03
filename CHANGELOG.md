@@ -1,6 +1,5 @@
 # CHANGELOG
 
-## v26.0.0 (2025-07-03)
 - Bumped major version and updated all documentation
 - Version references refreshed across scripts
 

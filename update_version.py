@@ -12,6 +12,7 @@ import sys
 # Add any new files that contain the version number to this list.
 FILES_TO_UPDATE = [
     "start_tool.py",
+    "error_tracker.py",
     "README.md",
     "CHANGELOG.md",
     "run.py",
