@@ -109,6 +109,7 @@ KYO_QA_ServiceNow_Knowledge_Tool_v26.0.0/\
 3. Run `START.bat` (Windows) or `python run.py`:
    - Sets up `/venv/` and installs dependencies from `requirements.txt`.
    - Outputs logs to `/logs/` and Excel to `/output/`.
+   - Set `SENTRY_DSN` in your environment to enable cloud error reporting.
 4. Manual setup (if needed):
 
    ```bash
@@ -171,6 +172,7 @@ Requires `pandas`, `PyMuPDF`, `openpyxl`, `pytesseract`, `python-dateutil`, `col
 - Session logs in `/logs/[YYYY-MM-DD_HH-MM-SS]_session.log`.
 - Success/failure logs as `[YYYYMMDD]_SUCCESSlog.md` or `FAILlog.md` in `/logs/`.
 - Text files for documents needing review (e.g., failed model extraction) in `/PDF_TXT/needs_review/*.txt`.
+- Optional Sentry reporting: set the environment variable `SENTRY_DSN` with your project DSN to forward errors to Sentry.
 
 ## Portable Deployment
 

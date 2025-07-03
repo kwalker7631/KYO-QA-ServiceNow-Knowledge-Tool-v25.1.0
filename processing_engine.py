@@ -7,21 +7,28 @@ import shutil
 import time
 import json
 import openpyxl
-import re
 import gc
-from queue import Queue
 from pathlib import Path
 from datetime import datetime
-from openpyxl.styles import PatternFill, Alignment
+try:
+    from openpyxl.styles import PatternFill, Alignment  # type: ignore
+except Exception:  # pragma: no cover - fallback for test stubs
+    PatternFill = lambda **kw: None  # type: ignore[misc]
+
+    class Alignment:  # pragma: no cover - simple stub
+        def __init__(self, *a, **k) -> None:
+            pass
+
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
 from config import META_COLUMN_NAME, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
-from custom_exceptions import FileLockError, PDFExtractionError
+from custom_exceptions import PDFExtractionError
 from data_harvesters import harvest_all_data
 from file_utils import is_file_locked
 from ocr_utils import extract_text_from_pdf, _is_ocr_needed
-from logging_utils import setup_logger, log_info, log_error, log_warning
+from logging_utils import setup_logger, log_error
+import zipfile
 
 logger = setup_logger("processing_engine")
 
@@ -108,15 +115,30 @@ def process_single_pdf(pdf_path, progress_queue, ignore_cache=False):
         extracted_text = extract_text_from_pdf(absolute_pdf_path)
         
         if not extracted_text or not extracted_text.strip():
+            status = "Needs Review" if ocr_required else "Fail"
+            review_info = None
+            if status == "Needs Review":
+                review_dir = PDF_TXT_DIR / "needs_review"
+                review_dir.mkdir(exist_ok=True)
+                review_txt_path = review_dir / f"{pdf_path.stem}.txt"
+                with open(review_txt_path, "w", encoding="utf-8") as f:
+                    f.write(f"File: {filename}\nStatus: Needs Review")
+                review_info = {
+                    "filename": filename,
+                    "reason": "OCR failed",
+                    "txt_path": str(review_txt_path),
+                    "pdf_path": str(pdf_path),
+                }
+                progress_queue.put({"type": "review_item", "data": review_info})
             result = {
-                "filename": filename, 
-                "models": "Error: Text Extraction Failed", 
-                "author": "", 
-                "status": "Fail", 
-                "ocr_used": ocr_required, 
-                "review_info": None
+                "filename": filename,
+                "models": "Error: Text Extraction Failed",
+                "author": "",
+                "status": status,
+                "ocr_used": ocr_required,
+                "review_info": review_info,
             }
-            progress_queue.put({"type": "file_complete", "status": "Fail"})
+            progress_queue.put({"type": "file_complete", "status": status})
         else:
             progress_queue.put({"type": "status", "msg": filename, "led": "AI"})
             data = harvest_all_data(extracted_text, filename)
@@ -199,7 +221,7 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
         progress_queue.put({"type": "log", "tag": "info", "msg": "Processing job started."})
 
         if is_rerun:
-            progress_queue.put({"type": "log", "tag": "info", "msg": f"Re-running process with updated patterns."})
+            progress_queue.put({"type": "log", "tag": "info", "msg": "Re-running process with updated patterns."})
             clear_review_folder()
             cloned_path = excel_path
         else:
@@ -349,8 +371,8 @@ def run_processing_job(job_info, progress_queue, cancel_event, pause_event=None)
 
             # Save the updated workbook
             workbook.save(cloned_path)
-            progress_queue.put({"type": "log", "tag": "success", 
-                               f"msg": f"Updated {updates_made} rows in Excel file."})
+            progress_queue.put({"type": "log", "tag": "success",
+                               "msg": f"Updated {updates_made} rows in Excel file."})
             progress_queue.put({"type": "result_path", "path": str(cloned_path)})
             progress_queue.put({"type": "finish", "status": "Complete"})
 
