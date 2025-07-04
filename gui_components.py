@@ -1,84 +1,122 @@
 # gui_components.py
-import tkinter as tk
-from tkinter import ttk, font, filedialog
-try:
-    from branding import KyoceraColors
-except ImportError:
-    class KyoceraColors:
-        DARK_GREY, PURPLE = "#282828", "#6D2C91"
-        LIGHT_GREY = "#F2F2F2"
-        STATUS_ORANGE_LIGHT, STATUS_BLUE_LIGHT, STATUS_GREEN_LIGHT, STATUS_RED_LIGHT = \
-            "#FAD9C6", "#CCE5F3", "#CCEFDA", "#F5B7B1"
+# Version: 26.0.0 (Repaired)
+# Last modified: 2025-07-03
+# Defines the layout and widgets for the main application window.
 
-def setup_styles():
-    style = ttk.Style()
-    if "clam" not in style.theme_names(): return
-    style.theme_use('clam')
-    style.configure('.', background=KyoceraColors.LIGHT_GREY, foreground=KyoceraColors.DARK_GREY, font=('Helvetica', 10))
-    style.configure('TFrame', background=KyoceraColors.LIGHT_GREY)
-    style.configure('TLabel', background=KyoceraColors.LIGHT_GREY, foreground=KyoceraColors.DARK_GREY)
-    style.configure('Header.TFrame', background=KyoceraColors.DARK_GREY)
-    style.configure('Header.TLabel', background=KyoceraColors.DARK_GREY, foreground='white', font=('Helvetica', 16, 'bold'))
-    style.configure('TButton', background=KyoceraColors.DARK_GREY, foreground='white', font=('Helvetica', 10, 'bold'), padding=5)
-    style.map('TButton', background=[('active', KyoceraColors.PURPLE)])
-    style.configure('Run.TButton', background=KyoceraColors.PURPLE, font=('Helvetica', 11, 'bold'))
-    style.map('Run.TButton', background=[('active', KyoceraColors.DARK_GREY)])
+import tkinter as tk
+from tkinter import ttk
 
 def create_main_header(parent, version, colors):
-    header_frame = ttk.Frame(parent, style='Header.TFrame', height=50)
-    header_frame.pack(fill="x", side="top", ipady=5)
-    title_text = f"KYOCERA ServiceNow Knowledge Tool {version}"
-    header_label = ttk.Label(header_frame, text=title_text, style='Header.TLabel')
-    header_label.pack()
-    return header_frame
+    """Creates the main header with Kyocera branding and version info."""
+    header = ttk.Frame(parent, style="Header.TFrame", padding=(10, 10))
+    header.grid(row=0, column=0, sticky="ew")
+    ttk.Separator(header, orient='horizontal').pack(side="bottom", fill="x")
+    ttk.Label(header, text="KYOCERA", foreground=colors["kyocera_red"], font=("Arial Black", 22)).pack(side=tk.LEFT, padx=(10, 0))
+    ttk.Label(header, text=f"QA Knowledge Tool v{version}", font=("Segoe UI", 16, "bold")).pack(side=tk.LEFT, padx=(15, 0))
 
 def create_io_section(parent, app):
-    io_frame = ttk.Frame(parent, padding="10 10 10 5")
-    io_frame.pack(fill="x")
-    io_frame.columnconfigure(1, weight=1)
-    input_path, output_path = tk.StringVar(), tk.StringVar()
-    def _browse_input():
-        path = filedialog.askopenfilename(title='Select Input File', filetypes=(('Excel files', '*.xlsx'), ('PDF files', '*.pdf'), ('All files', '*.*')))
-        if path: input_path.set(path)
-    def _browse_output():
-        path = filedialog.askdirectory(title='Select Output Folder')
-        if path: output_path.set(path)
-    ttk.Label(io_frame, text="Input File:").grid(row=0, column=0, sticky="w", padx=(0, 10))
-    ttk.Entry(io_frame, textvariable=input_path, state="readonly").grid(row=0, column=1, sticky="ew")
-    ttk.Button(io_frame, text="Browse...", command=_browse_input).grid(row=0, column=2, sticky="e", padx=(5, 0))
-    ttk.Label(io_frame, text="Output Folder:").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(5, 0))
-    ttk.Entry(io_frame, textvariable=output_path, state="readonly").grid(row=1, column=1, sticky="ew", pady=(5, 0))
-    ttk.Button(io_frame, text="Browse...", command=_browse_output).grid(row=1, column=2, sticky="e", padx=(5, 0), pady=(5, 0))
-    app.input_path, app.output_path = input_path, output_path
-    return input_path, output_path
+    """Creates the file input/output selection section."""
+    io = ttk.LabelFrame(parent, text="1. Select Inputs", padding=10)
+    io.grid(row=0, column=0, sticky="ew", pady=5)
+    io.columnconfigure(1, weight=1)
 
-def create_process_controls(parent, run_callback):
-    control_frame = ttk.Frame(parent, padding="5 10")
-    control_frame.pack(fill="x")
-    run_button = ttk.Button(control_frame, text="Run QA Check", command=run_callback, style='Run.TButton')
-    run_button.pack(pady=5)
-    return run_button
+    # Excel file selection
+    ttk.Label(io, text="Excel to Clone:").grid(row=0, column=0, sticky="w", pady=2, padx=5)
+    ttk.Entry(io, textvariable=app.selected_excel).grid(row=0, column=1, sticky="ew", padx=5)
+    ttk.Button(io, image=app.browse_icon, text=" Browse...", compound="left", command=app.browse_excel).grid(row=0, column=2, padx=5)
+
+    # PDF folder selection
+    ttk.Label(io, text="PDFs Folder:").grid(row=1, column=0, sticky="w", pady=2, padx=5)
+    ttk.Entry(io, textvariable=app.selected_folder).grid(row=1, column=1, sticky="ew", padx=5)
+    ttk.Button(io, image=app.browse_icon, text=" Browse...", compound="left", command=app.browse_folder).grid(row=1, column=2, padx=5)
+
+    # Individual PDF file selection
+    app.files_label = ttk.Label(io, text="Or select individual files -->")
+    app.files_label.grid(row=2, column=1, sticky="e", padx=5, pady=(5,0))
+    ttk.Button(io, image=app.browse_icon, text=" Browse Files...", compound="left", command=app.browse_files).grid(row=2, column=2, padx=5, pady=(5,0))
+
+def create_process_controls(parent, app):
+    """Creates the main control buttons for processing and management."""
+    ctrl = ttk.LabelFrame(parent, text="2. Process & Manage", padding=10)
+    ctrl.grid(row=1, column=0, sticky="ew", pady=5)
+    # Use a 4-column grid for a clean, modern button layout
+    ctrl.columnconfigure((0, 1, 2, 3), weight=1)
+
+    # Main START button
+    app.process_btn = ttk.Button(ctrl, text=" START", image=app.start_icon, compound="left", command=app.start_processing, style="Red.TButton")
+    app.process_btn.grid(row=0, column=0, columnspan=4, sticky="ew", pady=2, ipady=5)
+
+    # Row of processing controls
+    app.pause_btn = ttk.Button(ctrl, text=" Pause", image=app.pause_icon, compound="left", command=app.toggle_pause, state=tk.DISABLED)
+    app.pause_btn.grid(row=1, column=0, sticky="ew", pady=2)
+    app.stop_btn = ttk.Button(ctrl, text=" Stop", image=app.stop_icon, compound="left", command=app.stop_processing, state=tk.DISABLED)
+    app.stop_btn.grid(row=1, column=1, sticky="ew", pady=2)
+    app.rerun_btn = ttk.Button(ctrl, text=" Re-run Flagged", image=app.rerun_icon, compound="left", command=app.rerun_flagged_job, state=tk.DISABLED)
+    app.rerun_btn.grid(row=1, column=2, sticky="ew", pady=2)
+    app.open_result_btn = ttk.Button(ctrl, text=" Open Result", image=app.open_icon, compound="left", command=app.open_result, state=tk.DISABLED)
+    app.open_result_btn.grid(row=1, column=3, sticky="ew", pady=2)
+    
+    # Row of application management controls
+    app.review_btn = ttk.Button(ctrl, text=" Patterns", image=app.patterns_icon, compound="left", command=app.open_pattern_manager)
+    app.review_btn.grid(row=2, column=0, sticky="ew", pady=2)
+    
+    app.fullscreen_btn = ttk.Button(ctrl, text=" Fullscreen", image=app.fullscreen_icon, compound="left", command=app.toggle_fullscreen)
+    app.fullscreen_btn.grid(row=2, column=1, sticky="ew", pady=2)
+    
+    app.exit_btn = ttk.Button(ctrl, text=" Exit", image=app.exit_icon, compound="left", command=app.on_closing)
+    app.exit_btn.grid(row=2, column=3, sticky="ew", pady=2)
 
 def create_status_and_log_section(parent, app):
-    frame = ttk.Frame(parent, padding="10 0 10 10")
-    frame.pack(fill="both", expand=True)
-    log_text = tk.Text(frame, wrap="word", font=("Helvetica", 10), bg=KyoceraColors.LIGHT_GREY, fg=KyoceraColors.DARK_GREY, relief="solid", borderwidth=1, padx=10, pady=10)
-    scrollbar = ttk.Scrollbar(frame, orient="vertical", command=log_text.yview)
-    log_text.config(yscrollcommand=scrollbar.set)
-    scrollbar.pack(side="right", fill="y")
-    log_text.pack(side="left", fill="both", expand=True)
-    log_text.tag_configure("center", justify='center')
-    log_text.tag_configure("header", justify='center', font=("Helvetica", 14, "bold"))
-    log_text.insert("1.0", "Welcome to the KYO QA Knowledge Tool\n\n", "header")
-    log_text.insert(tk.END, "1. Select an 'Input File' to be checked.\n2. Select an 'Output Folder' to save the results.\n3. Click 'Run QA Check' to begin.\n\nResults will be displayed here.", "center")
-    log_text.config(state="disabled")
-    log_text.tag_configure("error", background=KyoceraColors.STATUS_RED_LIGHT, foreground=KyoceraColors.DARK_GREY)
-    log_text.tag_configure("warning", background=KyoceraColors.STATUS_ORANGE_LIGHT, foreground=KyoceraColors.DARK_GREY)
-    log_text.tag_configure("info", foreground=KyoceraColors.DARK_GREY)
-    log_text.tag_configure("success", foreground=KyoceraColors.PURPLE)
-    return log_text
+    """Creates the detailed feedback section with status, progress, counters, and logs."""
+    stat = ttk.LabelFrame(parent, text="3. Status & Logs", padding=10)
+    stat.grid(row=2, column=0, sticky="nsew", pady=5)
+    stat.columnconfigure(0, weight=1)
+    stat.rowconfigure(4, weight=1) # Allow the log section to expand
 
-def create_status_bar(parent):
-    status_bar = tk.Label(parent, text="Ready", bd=1, relief=tk.SUNKEN, anchor=tk.W, bg=KyoceraColors.DARK_GREY, fg='white', font=('Helvetica', 9))
-    status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-    return status_bar
+    # Status bar with LED indicator
+    app.status_frame = ttk.Frame(stat, style="Status.TFrame", padding=5)
+    app.status_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=2)
+    app.status_frame.columnconfigure(1, weight=1)
+    app.led_label = ttk.Label(app.status_frame, textvariable=app.led_status_var, style="LED.TLabel")
+    app.led_label.grid(row=0, column=0, sticky="w")
+    ttk.Label(app.status_frame, textvariable=app.status_current_file, style="Status.TLabel").grid(row=0, column=1, sticky="ew", padx=5)
+
+    # Progress bar and time remaining
+    prog_frame = ttk.Frame(stat)
+    prog_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=(5,10))
+    prog_frame.columnconfigure(0, weight=1)
+    app.progress_bar = ttk.Progressbar(prog_frame, variable=app.progress_value, style="Blue.Horizontal.TProgressbar")
+    app.progress_bar.grid(row=0, column=0, sticky="ew")
+    ttk.Label(prog_frame, textvariable=app.time_remaining_var).grid(row=0, column=1, sticky="e", padx=10)
+
+    # Summary counters
+    sum_frame = ttk.Frame(stat)
+    sum_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=2)
+    counters = [("Pass:", app.count_pass, "Green"), ("Fail:", app.count_fail, "Red"), ("Review:", app.count_review, "Orange"), ("OCR:", app.count_ocr, "Blue")]
+    for i, (text, var, color) in enumerate(counters):
+        ttk.Label(sum_frame, text=text, style="Status.Header.TLabel").pack(side="left", padx=(15, 2))
+        ttk.Label(sum_frame, textvariable=var, style=f"Count.{color}.TLabel").pack(side="left")
+
+    # List of files needing review
+    rev_frame = ttk.Frame(stat)
+    rev_frame.grid(row=3, column=0, sticky="nsew", padx=5, pady=2)
+    rev_frame.rowconfigure(1, weight=1)
+    rev_frame.columnconfigure(0, weight=1)
+    ttk.Label(rev_frame, text="Files to Review:", style="Status.Header.TLabel").grid(row=0, column=0, sticky="w")
+    app.review_file_btn = ttk.Button(rev_frame, text="Review Selected", command=app.open_review_for_selected_file, state=tk.DISABLED)
+    app.review_file_btn.grid(row=0, column=1, sticky="e")
+    app.review_tree = ttk.Treeview(rev_frame, columns=('file'), show='headings', height=4)
+    app.review_tree.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=2)
+    app.review_tree.heading('file', text='File Name')
+    app.review_tree.bind("<<TreeviewSelect>>", lambda e: app.review_file_btn.config(state=tk.NORMAL if app.review_tree.selection() else tk.DISABLED))
+
+    # Main log text area
+    log_frame = ttk.Frame(stat)
+    log_frame.grid(row=4, column=0, sticky="nsew", padx=5, pady=(10,2))
+    log_frame.rowconfigure(0, weight=1)
+    log_frame.columnconfigure(0, weight=1)
+    app.log_text = tk.Text(log_frame, height=8, wrap=tk.WORD, state=tk.DISABLED, relief="solid", borderwidth=1, font=("Consolas", 9))
+    app.log_text.grid(row=0, column=0, sticky="nsew")
+    log_scroll = ttk.Scrollbar(log_frame, command=app.log_text.yview)
+    log_scroll.grid(row=0, column=1, sticky="ns")
+    app.log_text.config(yscrollcommand=log_scroll.set)

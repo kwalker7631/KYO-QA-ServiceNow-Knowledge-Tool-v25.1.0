@@ -1,48 +1,71 @@
 # config.py
+# Version: 26.0.0 (Repaired)
+# Last modified: 2025-07-03
+# Central configuration for all application settings.
+
 from pathlib import Path
 
-# Application directories
+# --- DIRECTORY CONFIGURATION ---
+# Defines all the core folders the application uses.
 BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR / "output"
-PDF_TXT_DIR = BASE_DIR / "review_files"
-NEED_REVIEW_DIR = PDF_TXT_DIR
-OCR_FAILED_DIR = PDF_TXT_DIR
 LOGS_DIR = BASE_DIR / "logs"
+PDF_TXT_DIR = BASE_DIR / "PDF_TXT"
 CACHE_DIR = BASE_DIR / ".cache"
-for _d in (OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR, LOGS_DIR):
-    _d.mkdir(exist_ok=True)
+# FIXED: Added the missing ASSETS_DIR definition for UI icons.
+ASSETS_DIR = BASE_DIR / "assets"
 
-# Column name for models/metadata in Excel sheet
-# This is the column where model information will be stored
-# Change this to match an existing column name in your Excel file
-# Common options: "Models", "Applicable Models", "Device Models", "Metadata"
-META_COLUMN_NAME = "Models"  # Changed from "Applicable Models/Metadata"
-
-# Brand colors
+# --- BRANDING AND UI ---
+# Defines the color scheme for the modern user interface.
 BRAND_COLORS = {
-    # Primary colors
-    "background": "#F9F9F9",
-    "frame_background": "#F2F2F2",
-    "kyocera_red": "#CC0033",
-    "kyocera_black": "#333333",
-    
-    # Text colors
-    "header_text": "#FFFFFF",
-    "body_text": "#444444",
-    
-    # Accent colors
-    "accent_blue": "#0078D7",
-    "accent_grey": "#999999",
-    
-    # Status colors
-    "success_green": "#28A745",
-    "warning_yellow": "#FFC107",
-    "error_red": "#DC3545",
+    "kyocera_red": "#DA291C",
+    "kyocera_black": "#231F20",
+    "background": "#F0F2F5",
+    "frame_background": "#FFFFFF",
+    "header_text": "#000000",
+    "accent_blue": "#0078D4",
+    "success_green": "#107C10",
+    "warning_orange": "#FFA500",
+    "fail_red": "#DA291C",
+    "highlight_blue": "#0078D4",
+    # Status bar background colors for different states
+    "status_default_bg": "#F8F8F8",
+    "status_processing_bg": "#DDEEFF",
+    "status_ocr_bg": "#E6F7FF",
+    "status_ai_bg": "#F9F0FF",
 }
 
-# Default processing options
-DEFAULT_OPTIONS = {
-    "use_ocr": True,
-    "auto_open_result": True,
-    "cleanup_temp": True,
+# --- EXCEL REPORT CONFIGURATION ---
+# Defines the column names to look for in the input Excel file.
+STATUS_COLUMN_NAME = "Processing Status"
+DESCRIPTION_COLUMN_NAME = "Short description"
+META_COLUMN_NAME = "Meta"
+AUTHOR_COLUMN_NAME = "Author"
+
+
+# --- DATA PROCESSING RULES ---
+# Patterns to exclude from the results to avoid false positives.
+EXCLUSION_PATTERNS = ["CVE-", "CWE-", "TK-"]
+
+# Default regex patterns for finding model numbers.
+# Users can add their own in custom_patterns.py
+MODEL_PATTERNS = [
+    r'\bTASKalfa\s*[\w-]+\b',
+    r'\bECOSYS\s*[\w-]+\b',
+    r'\bPF-[\w-]+\b',
+    r'\bFS-[\w-]+\b',
+]
+
+# Default regex patterns for finding QA/Service Bulletin numbers.
+QA_NUMBER_PATTERNS = [
+    r'\bQA\s*[\d-]+\b',
+    r'\bSB\s*[\d-]+\b',
+]
+
+# List of author names to ignore (e.g., generic system accounts).
+UNWANTED_AUTHORS = ["System", "Admin", "Administrator"]
+
+# Rules to standardize model names (e.g., remove spaces).
+STANDARDIZATION_RULES = {
+    " ": ""
 }

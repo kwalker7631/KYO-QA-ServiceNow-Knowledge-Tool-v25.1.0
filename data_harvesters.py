@@ -1,133 +1,88 @@
 # data_harvesters.py
-import logging
-try:
-    import pandas as pd
-except Exception:  # pragma: no cover - optional dependency
-    pd = None
+# Version: 26.0.0 (Repaired)
+# Last modified: 2025-07-03
+# Extracts specific data points from raw text using regex patterns.
+
 import re
+import importlib
 
-logger = logging.getLogger(__name__)
-KNOWLEDGE_BASE_FIELDS = ['number', 'short_description', 'kb_knowledge_base']
+# --- Application Modules ---
+# Imports settings from the central config file.
+from config import (
+    MODEL_PATTERNS as DEFAULT_MODEL_PATTERNS,
+    QA_NUMBER_PATTERNS as DEFAULT_QA_PATTERNS,
+    EXCLUSION_PATTERNS,
+    UNWANTED_AUTHORS,
+    STANDARDIZATION_RULES,
+)
+import logging_utils
 
-class DataHarvester:
-    def harvest_from_excel(self, file_path):
-        if pd is None:
-            logger.error("pandas is required to harvest from Excel")
-            return []
-        try:
-            # More adaptable: Try to find a relevant sheet name
-            xls = pd.ExcelFile(file_path)
-            sheet_name_to_use = 'Page 1' # Default
-            for name in xls.sheet_names:
-                if 'knowledge' in name.lower() or 'kb' in name.lower():
-                    sheet_name_to_use = name
-                    break
-            df = pd.read_excel(xls, sheet_name=sheet_name_to_use)
-            # Standardize column names (e.g., 'Number' -> 'number')
-            df.columns = [c.lower().replace(' ', '_') for c in df.columns]
-            return df.to_dict('records')
-        except Exception as e:
-            logger.error(f"Failed to harvest data from Excel file '{file_path}': {e}")
-            return []
-    
-    def harvest_from_text(self, text_content):
-        if text_content:
-            return [{'number': 'TXT_001', 'short_description': 'Content from PDF', 'article_body': text_content[:500] + '...'}]
-        return []
+logger = logging_utils.setup_logger("harvesters")
 
-# Model extraction patterns
-MODEL_PATTERNS = [
-    r'\b(?:model|models|product)\s*(?:name|number|no|#|:)?\s*[:-]?\s*([A-Z0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)*)',
-    r'\b([A-Z]{2,4}-[A-Z0-9]{3,5}(?:-[A-Z0-9]+)*)\b',
-    r'\b(TA[SX]-[A-Z0-9]{4,})\b',
-    r'\b(FS-[A-Z0-9]{4,})\b',
-    r'\b(ECOSYS [A-Z0-9]{4,})\b',
-    r'\b(TASKalfa [0-9]{4,}[a-z]*i?)\b',
-    # Add any other model patterns here
-]
-
-# QA Number patterns
-QA_NUMBER_PATTERNS = [
-    r'\bQA[-\s]?#?[-\s]?([0-9]{5,6})\b',
-    r'\bQA[-\s]?([0-9]{5,6})\b',
-    r'\b(QA[0-9]{5,6})\b',
-    # Add any other QA number patterns here
-]
-
-def bulletproof_extraction(text_content, filename=None):
+def get_combined_patterns(pattern_name: str, default_patterns: list) -> list:
     """
-    Extract models and other metadata from document text using regex patterns.
-    This is the function that was missing and caused the import error.
-    
-    Args:
-        text_content: The text extracted from a PDF
-        filename: Original filename for reference
-        
-    Returns:
-        dict: Extracted data including models, qa numbers, etc.
+    Safely loads patterns from custom_patterns.py and combines them with
+    the default patterns from config.py, giving precedence to custom ones.
     """
-    if not text_content or not isinstance(text_content, str):
-        return {"models": "Not Found", "author": "", "short_description": filename or "Unknown"}
-    
-    # Attempt to find all models mentioned in the text
-    all_models = []
-    for pattern in MODEL_PATTERNS:
-        matches = re.finditer(pattern, text_content, re.IGNORECASE)
-        for match in matches:
-            model = match.group(1).strip()
-            if model and model not in all_models and len(model) >= 4:  # Minimum length check
-                all_models.append(model)
-    
-    # Look for QA number references
-    qa_number = ""
-    full_qa_number = ""
-    for pattern in QA_NUMBER_PATTERNS:
-        matches = re.finditer(pattern, text_content, re.IGNORECASE)
-        for match in matches:
-            if match.group(1).isdigit():
-                qa_number = match.group(1)
-                full_qa_number = match.group(0)
-                break
-            else:
-                full_qa_number = match.group(0)
-                qa_number = ''.join(filter(str.isdigit, full_qa_number))
-            if qa_number:
-                break
-        if qa_number:
-            break
-    
-    # Extract potential author name (simple heuristic)
-    author = ""
-    author_pattern = r'(?:Author|Written by|Prepared by|Created by)[:\s]+([A-Z][a-z]+ [A-Z][a-z]+)'
-    author_match = re.search(author_pattern, text_content)
-    if author_match:
-        author = author_match.group(1)
-    
-    # Create a short description from filename or first meaningful line
-    short_description = filename or "Unknown File"
-    if len(text_content) > 10:
-        first_lines = text_content.split('\n')[:5]
-        for line in first_lines:
-            clean_line = line.strip()
-            if clean_line and len(clean_line) > 15 and not clean_line.startswith('Page '):
-                short_description = clean_line[:100]
-                break
-    
-    return {
-        "models": ", ".join(all_models) if all_models else "Not Found",
-        "author": author,
-        "short_description": short_description,
-        "full_qa_number": full_qa_number,
-        "qa_number": qa_number
-    }
+    custom_patterns = []
+    try:
+        # Reload the module to get the latest changes without restarting the app
+        custom_mod = importlib.import_module("custom_patterns")
+        importlib.reload(custom_mod)
+        custom_patterns = getattr(custom_mod, pattern_name, [])
+    except (ImportError, SyntaxError):
+        # This is expected if the user hasn't created a custom_patterns.py file
+        pass
+    # Combine lists, ensuring custom patterns come first
+    return custom_patterns + [p for p in default_patterns if p not in custom_patterns]
 
+def is_excluded(text: str) -> bool:
+    """Checks if a string contains any of the unwanted exclusion patterns."""
+    return any(p.lower() in text.lower() for p in EXCLUSION_PATTERNS)
 
-def harvest_all_data(text_content: str, filename: str | None = None) -> dict:
-    """Compatibility wrapper expected by other modules."""
-    return bulletproof_extraction(text_content, filename)
+def clean_model_string(model_str: str) -> str:
+    """Applies standardization rules to a found model string."""
+    for rule, replacement in STANDARDIZATION_RULES.items():
+        model_str = model_str.replace(rule, replacement)
+    return model_str.strip()
 
+def harvest_models(text: str, filename: str) -> list:
+    """Finds all unique models from text and filename, respecting exclusions."""
+    models = set()
+    patterns = get_combined_patterns("MODEL_PATTERNS", DEFAULT_MODEL_PATTERNS)
+    
+    # Search both the document text and the filename itself for patterns
+    for content in [text, filename.replace("_", " ")]:
+        for p in patterns:
+            try:
+                for match in re.findall(p, content, re.IGNORECASE):
+                    if not is_excluded(match):
+                        models.add(clean_model_string(match))
+            except re.error as e:
+                logger.warning(f"Invalid regex pattern skipped: '{p}'. Error: {e}")
 
-def harvest_author(text_content: str) -> str:
-    """Return only the author name from text content."""
-    result = bulletproof_extraction(text_content)
-    return result.get("author", "")
+    return sorted(list(models))
+
+def harvest_author(text: str) -> str:
+    """Finds the author and returns an empty string if it's an unwanted name."""
+    # Search for a line that looks like "Author: John Doe"
+    match = re.search(r"^Author:\s*(.*)", text, re.MULTILINE | re.IGNORECASE)
+    if match:
+        author = match.group(1).strip()
+        # Ensure the found author is not in the unwanted list
+        if author not in UNWANTED_AUTHORS:
+            return author
+    return "" # Return empty string if no author is found or if it's unwanted
+
+def harvest_all_data(text: str, filename: str) -> dict:
+    """
+    REPAIRED: This is the main harvester function that the processing engine
+    calls. It aggregates all the extracted data into a single dictionary.
+    """
+    models_list = harvest_models(text, filename)
+    models_str = ", ".join(models_list) if models_list else "Not Found"
+    author_str = harvest_author(text)
+    
+    logger.info(f"Harvested from '{filename}': {len(models_list)} models, Author: '{author_str or 'N/A'}'")
+    
+    return {"models": models_str, "author": author_str}
