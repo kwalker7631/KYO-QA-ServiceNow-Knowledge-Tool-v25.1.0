@@ -1,73 +1,141 @@
-# file_utils.py
-# Version: 26.0.0 (Repaired)
-# Last modified: 2025-07-03
-# Provides utility functions for file and folder management.
-
 import os
 import sys
 import shutil
+import tempfile
+import logging
+from tkinter import messagebox
 from pathlib import Path
-import subprocess
-import platform
+import stat # <-- Required for changing file attributes
 
-# --- Application Modules ---
-from config import LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR
-import logging_utils
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-logger = logging_utils.setup_logger("file_utils")
-
-def ensure_folders():
-    """Create all necessary application folders on startup if they don't exist."""
-    logger.info("Ensuring all required application directories exist.")
-    for folder in [LOGS_DIR, OUTPUT_DIR, PDF_TXT_DIR, CACHE_DIR]:
-        try:
-            folder.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            logger.error(f"Could not create directory {folder}: {e}")
-
-def is_file_locked(filepath: Path) -> bool:
+def try_unlock_file(filepath: Path) -> bool:
     """
-    REPAIRED: Checks if a file is locked by another process. This is critical
-    for preventing errors when writing to the Excel report.
+    Attempts to remove the read-only attribute from a file.
+    Returns True if the operation was attempted, False otherwise.
     """
     try:
-        # Try to open the file in append mode. If it's locked by another
-        # program (like Excel), this will raise an IOError.
-        with open(filepath, "a"):
+        # Get current permissions and add write permission for the owner
+        current_permissions = os.stat(filepath).st_mode
+        os.chmod(filepath, current_permissions | stat.S_IWRITE)
+        logging.info(f"Attempted to remove read-only attribute from {filepath.name}")
+        return True
+    except (OSError, PermissionError) as e:
+        logging.warning(f"Could not change file attributes for {filepath.name}: {e}")
+        return False
+
+def get_resource_path(relative_path):
+    """
+    Get the absolute path to a resource, works for both development and for PyInstaller.
+    """
+    try:
+        base_path = Path(sys._MEIPASS)
+    except Exception:
+        base_path = Path.cwd()
+    return base_path / relative_path
+
+def find_tesseract_executable():
+    """
+    Find the tesseract.exe executable in a prioritized order.
+    """
+    logging.info("Searching for Tesseract executable...")
+    
+    search_paths = []
+    if getattr(sys, 'frozen', False):
+        search_paths.append(Path(sys._MEIPASS) / 'Tesseract-OCR' / 'tesseract.exe')
+    
+    search_paths.extend([
+        Path.cwd() / 'Tesseract-OCR' / 'tesseract.exe',
+        Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Tesseract-OCR" / "tesseract.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Tesseract-OCR" / "tesseract.exe"
+    ])
+
+    for path in search_paths:
+        if path.exists():
+            logging.info(f"Found Tesseract at: {path}")
+            return str(path)
+
+    error_message = "Tesseract OCR executable not found. Please ensure Tesseract is installed and accessible."
+    logging.error(error_message)
+    messagebox.showerror("Dependency Error", error_message)
+    raise FileNotFoundError(error_message)
+
+def is_file_locked(filepath):
+    """
+    Checks if a file is locked by attempting to open it in append mode.
+    """
+    try:
+        with open(filepath, 'a+b'):
             pass
         return False
-    except IOError:
-        logger.warning(f"File is locked: {filepath.name}")
+    except (IOError, PermissionError) as e:
+        logging.warning(f"File is locked: {filepath}. Reason: {e}")
         return True
-    except Exception as e:
-        logger.error(f"Unexpected error checking file lock for {filepath.name}: {e}")
-        return True # Assume locked on unexpected error to be safe
 
-def cleanup_temp_files():
-    """Removes temporary files from cache and review folders upon closing."""
-    logger.info("Cleaning up temporary files from cache and review folders.")
-    for directory in [CACHE_DIR, PDF_TXT_DIR]:
-        if directory.exists():
-            for item in directory.iterdir():
-                try:
-                    if item.is_file():
-                        item.unlink()
-                    elif item.is_dir():
-                        shutil.rmtree(item)
-                except OSError as e:
-                    logger.error(f"Error deleting temporary item {item}: {e}")
-
-def open_file(path: str | Path):
-    """Opens a file or folder with the default system application."""
-    path_str = str(path)
-    logger.info(f"Attempting to open {path_str} with default application.")
+def create_temp_working_dir():
+    """
+    Creates a temporary directory to safely store and process file copies.
+    """
     try:
-        if platform.system() == "Windows":
-            os.startfile(path_str)
-        elif platform.system() == "Darwin":  # macOS
-            subprocess.run(["open", path_str], check=True)
-        else:  # Linux
-            subprocess.run(["xdg-open", path_str], check=True)
+        temp_dir = tempfile.mkdtemp(prefix="kyo_qa_")
+        logging.info(f"Created temporary working directory: {temp_dir}")
+        return Path(temp_dir)
     except Exception as e:
-        logger.error(f"Failed to open file or folder '{path_str}': {e}")
-        # Optionally, show this error to the user in a messagebox if it were called from the UI thread
+        logging.error(f"Failed to create temporary directory: {e}")
+        messagebox.showerror("Error", f"Could not create a temporary working directory: {e}")
+        return None
+
+def cleanup_directory(directory_path):
+    """
+    Recursively deletes the specified directory and all its contents.
+    """
+    if not directory_path or not os.path.exists(directory_path):
+        logging.warning(f"Cleanup skipped: Directory does not exist or path is invalid: {directory_path}")
+        return
+        
+    try:
+        shutil.rmtree(directory_path)
+        logging.info(f"Successfully cleaned up directory: {directory_path}")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred during cleanup of {directory_path}: {e}")
+        messagebox.showwarning("Cleanup Failed", f"An error occurred while cleaning up files:\n{e}")
+
+def setup_output_folders(base_dir):
+    """
+    Creates all necessary output subdirectories and returns their Path objects.
+    """
+    base_path = Path(base_dir)
+    try:
+        locked_files_dir = base_path / "locked_files"
+        needs_review_dir = base_path / "needs_review"
+        
+        locked_files_dir.mkdir(parents=True, exist_ok=True)
+        needs_review_dir.mkdir(parents=True, exist_ok=True)
+        
+        return {
+            "locked_files": locked_files_dir,
+            "needs_review": needs_review_dir
+        }
+    except Exception as e:
+        logging.error(f"Could not create output subdirectories in {base_dir}: {e}")
+        return {}
+
+# --- Compatibility Functions ---
+def open_file(filepath):
+    """Opens a file with the default application."""
+    try:
+        os.startfile(filepath)
+    except Exception as e:
+        logging.error(f"Failed to open file {filepath}: {e}")
+        messagebox.showerror("Error", f"Could not open the file:\n{filepath}")
+
+def ensure_folders(base_dir):
+    """Alias for setup_output_folders for backward compatibility."""
+    logging.warning("Using deprecated function 'ensure_folders'. Please switch to 'setup_output_folders'.")
+    return setup_output_folders(base_dir)
+
+def cleanup_temp_files(directory_path):
+    """Alias for cleanup_directory for backward compatibility."""
+    logging.warning("Using deprecated function 'cleanup_temp_files'. Please switch to 'cleanup_directory'.")
+    cleanup_directory(directory_path)

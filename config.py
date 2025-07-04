@@ -1,71 +1,100 @@
-# config.py
-# Version: 26.0.0 (Repaired)
-# Last modified: 2025-07-03
-# Central configuration for all application settings.
+import json
+import os
+import logging
+from pathlib import Path  # <-- Import Path
+from version import __version__
+from branding import KyoceraColors
 
-from pathlib import Path
+# Initialize logging
+logger = logging.getLogger('config')
 
-# --- DIRECTORY CONFIGURATION ---
-# Defines all the core folders the application uses.
+# --- Define all pattern variables with default empty values FIRST ---
+MODEL_PATTERNS = []
+PART_NUMBER_PATTERNS = []
+SERIAL_NUMBER_PATTERNS = []
+QA_NUMBER_PATTERNS = []
+DOCUMENT_TYPE_PATTERNS = []
+DOCUMENT_TITLE_PATTERNS = []
+REVISION_PATTERNS = []
+LANGUAGE_PATTERNS = []
+EXCLUSION_PATTERNS = []
+UNWANTED_AUTHORS = []
+STANDARDIZATION_RULES = {}  # Rules are a dictionary
+
+# --- Now, try to overwrite the defaults with values from custom_patterns.py ---
+try:
+    from custom_patterns import *
+    logging.info("Successfully loaded custom patterns.")
+except ImportError as e:
+    logging.warning(f"Could not import from custom_patterns.py: {e}. Using default empty patterns.")
+except Exception as e:
+    logging.error(f"An unexpected error occurred while loading custom patterns: {e}")
+
+
+# --- FIX: Use Path objects for all directory constants ---
 BASE_DIR = Path(__file__).parent
-OUTPUT_DIR = BASE_DIR / "output"
-LOGS_DIR = BASE_DIR / "logs"
-PDF_TXT_DIR = BASE_DIR / "PDF_TXT"
-CACHE_DIR = BASE_DIR / ".cache"
-# FIXED: Added the missing ASSETS_DIR definition for UI icons.
-ASSETS_DIR = BASE_DIR / "assets"
+OUTPUT_DIR = BASE_DIR / 'output'
+LOGS_DIR = BASE_DIR / 'logs'
+ASSETS_DIR = BASE_DIR / 'assets'
+PDF_TXT_DIR = OUTPUT_DIR / 'pdf_texts'
+CACHE_DIR = BASE_DIR / 'cache'
+CONFIG_FILE = BASE_DIR / 'config.json'
 
-# --- BRANDING AND UI ---
-# Defines the color scheme for the modern user interface.
+# --- GUI and App Color Configuration ---
 BRAND_COLORS = {
-    "kyocera_red": "#DA291C",
-    "kyocera_black": "#231F20",
-    "background": "#F0F2F5",
-    "frame_background": "#FFFFFF",
-    "header_text": "#000000",
-    "accent_blue": "#0078D4",
-    "success_green": "#107C10",
-    "warning_orange": "#FFA500",
-    "fail_red": "#DA291C",
-    "highlight_blue": "#0078D4",
-    # Status bar background colors for different states
-    "status_default_bg": "#F8F8F8",
-    "status_processing_bg": "#DDEEFF",
-    "status_ocr_bg": "#E6F7FF",
-    "status_ai_bg": "#F9F0FF",
+    "background": KyoceraColors.LIGHT_GREY,
+    "header": KyoceraColors.DARK_GREY,
+    "purple": KyoceraColors.PURPLE,
+    "status_review": KyoceraColors.STATUS_ORANGE_LIGHT,
+    "status_pass": KyoceraColors.STATUS_GREEN_LIGHT,
+    "status_fail": KyoceraColors.STATUS_RED_LIGHT,
+    "status_ocr": KyoceraColors.STATUS_BLUE_LIGHT
 }
 
-# --- EXCEL REPORT CONFIGURATION ---
-# Defines the column names to look for in the input Excel file.
-STATUS_COLUMN_NAME = "Processing Status"
-DESCRIPTION_COLUMN_NAME = "Short description"
-META_COLUMN_NAME = "Meta"
-AUTHOR_COLUMN_NAME = "Author"
+# Column names
+STATUS_COLUMN_NAME = "Validation Status"
+DESCRIPTION_COLUMN_NAME = "description"
+META_COLUMN_NAME = "meta"
+AUTHOR_COLUMN_NAME = "author"
 
 
-# --- DATA PROCESSING RULES ---
-# Patterns to exclude from the results to avoid false positives.
-EXCLUSION_PATTERNS = ["CVE-", "CWE-", "TK-"]
-
-# Default regex patterns for finding model numbers.
-# Users can add their own in custom_patterns.py
-MODEL_PATTERNS = [
-    r'\bTASKalfa\s*[\w-]+\b',
-    r'\bECOSYS\s*[\w-]+\b',
-    r'\bPF-[\w-]+\b',
-    r'\bFS-[\w-]+\b',
-]
-
-# Default regex patterns for finding QA/Service Bulletin numbers.
-QA_NUMBER_PATTERNS = [
-    r'\bQA\s*[\d-]+\b',
-    r'\bSB\s*[\d-]+\b',
-]
-
-# List of author names to ignore (e.g., generic system accounts).
-UNWANTED_AUTHORS = ["System", "Admin", "Administrator"]
-
-# Rules to standardize model names (e.g., remove spaces).
-STANDARDIZATION_RULES = {
-    " ": ""
+# --- Functions for GUI Configuration ---
+DEFAULT_CONFIG = {
+    'input_dir': '',
+    'output_dir': str(OUTPUT_DIR.absolute()), # Store as string in JSON
 }
+
+def load_config():
+    """
+    Loads the configuration from config.json.
+    If the file doesn't exist, it creates a default one.
+    """
+    if not os.path.exists(CONFIG_FILE):
+        logger.info(f"Config file not found. Creating default config at {CONFIG_FILE}")
+        save_config(DEFAULT_CONFIG)
+        return DEFAULT_CONFIG
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+            logger.info(f"Configuration loaded from {CONFIG_FILE}")
+            return config
+    except (json.JSONDecodeError, IOError) as e:
+        logger.error(f"Error loading config file: {e}. Using default config.")
+        return DEFAULT_CONFIG
+
+def save_config(config_data):
+    """
+    Saves the given configuration data to config.json.
+    """
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config_data, f, indent=4)
+            logger.info(f"Configuration saved to {CONFIG_FILE}")
+    except IOError as e:
+        logger.error(f"Error saving config file: {e}")
+
+def get_app_version():
+    """
+    Returns the application version from the version.py file.
+    """
+    return __version__

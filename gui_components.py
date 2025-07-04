@@ -1,122 +1,137 @@
-# gui_components.py
-# Version: 26.0.0 (Repaired)
-# Last modified: 2025-07-03
-# Defines the layout and widgets for the main application window.
-
 import tkinter as tk
 from tkinter import ttk
 
+class ToolTip:
+    """Create a tooltip for a given widget."""
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip_window = None
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+
+    def show_tooltip(self, event=None):
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        self.tooltip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(tw, text=self.text, justify='left', background="#ffffe0", relief='solid', borderwidth=1, font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def hide_tooltip(self, event=None):
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+        self.tooltip_window = None
+
 def create_main_header(parent, version, colors):
-    """Creates the main header with Kyocera branding and version info."""
-    header = ttk.Frame(parent, style="Header.TFrame", padding=(10, 10))
-    header.grid(row=0, column=0, sticky="ew")
-    ttk.Separator(header, orient='horizontal').pack(side="bottom", fill="x")
-    ttk.Label(header, text="KYOCERA", foreground=colors["kyocera_red"], font=("Arial Black", 22)).pack(side=tk.LEFT, padx=(10, 0))
-    ttk.Label(header, text=f"QA Knowledge Tool v{version}", font=("Segoe UI", 16, "bold")).pack(side=tk.LEFT, padx=(15, 0))
+    """Creates the main header frame with title."""
+    header_frame = ttk.Frame(parent, style="Header.TFrame", padding=(10, 5))
+    header_frame.grid(row=0, column=0, columnspan=2, sticky="ew")
+    header_frame.columnconfigure(0, weight=1)
+    title_label = ttk.Label(header_frame, text=f"KYOCERA QA Knowledge Tool v{version}", style="Header.TLabel")
+    title_label.grid(row=0, column=0, sticky="w")
 
 def create_io_section(parent, app):
-    """Creates the file input/output selection section."""
-    io = ttk.LabelFrame(parent, text="1. Select Inputs", padding=10)
-    io.grid(row=0, column=0, sticky="ew", pady=5)
-    io.columnconfigure(1, weight=1)
+    """Creates the 'Select Inputs' frame."""
+    io_frame = ttk.LabelFrame(parent, text="1. Select Inputs", padding=(10, 5))
+    io_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+    io_frame.columnconfigure(1, weight=1)
 
-    # Excel file selection
-    ttk.Label(io, text="Excel to Clone:").grid(row=0, column=0, sticky="w", pady=2, padx=5)
-    ttk.Entry(io, textvariable=app.selected_excel).grid(row=0, column=1, sticky="ew", padx=5)
-    ttk.Button(io, image=app.browse_icon, text=" Browse...", compound="left", command=app.browse_excel).grid(row=0, column=2, padx=5)
+    ttk.Label(io_frame, text="Excel to Clone:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+    excel_entry = ttk.Entry(io_frame, textvariable=app.selected_excel)
+    excel_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+    excel_browse_btn = ttk.Button(io_frame, text="Browse...", command=app.browse_excel)
+    excel_browse_btn.grid(row=0, column=2, padx=5)
+    ToolTip(excel_browse_btn, "Select the master Excel file to clone and update.")
 
-    # PDF folder selection
-    ttk.Label(io, text="PDFs Folder:").grid(row=1, column=0, sticky="w", pady=2, padx=5)
-    ttk.Entry(io, textvariable=app.selected_folder).grid(row=1, column=1, sticky="ew", padx=5)
-    ttk.Button(io, image=app.browse_icon, text=" Browse...", compound="left", command=app.browse_folder).grid(row=1, column=2, padx=5)
-
-    # Individual PDF file selection
-    app.files_label = ttk.Label(io, text="Or select individual files -->")
-    app.files_label.grid(row=2, column=1, sticky="e", padx=5, pady=(5,0))
-    ttk.Button(io, image=app.browse_icon, text=" Browse Files...", compound="left", command=app.browse_files).grid(row=2, column=2, padx=5, pady=(5,0))
+    ttk.Label(io_frame, text="PDFs Folder:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+    folder_entry = ttk.Entry(io_frame, textvariable=app.selected_folder)
+    folder_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
+    folder_browse_btn = ttk.Button(io_frame, text="Browse...", command=app.browse_folder)
+    folder_browse_btn.grid(row=1, column=2, padx=5)
+    ToolTip(folder_browse_btn, "Select a folder containing PDF files to process.")
+    
+    ttk.Label(io_frame, text="Or select individual files ->").grid(row=1, column=3, sticky="w", padx=10)
+    files_btn = ttk.Button(io_frame, text="Browse Files...", command=app.browse_files)
+    files_btn.grid(row=1, column=4, padx=5)
+    ToolTip(files_btn, "Select one or more individual PDF files.")
 
 def create_process_controls(parent, app):
-    """Creates the main control buttons for processing and management."""
-    ctrl = ttk.LabelFrame(parent, text="2. Process & Manage", padding=10)
-    ctrl.grid(row=1, column=0, sticky="ew", pady=5)
-    # Use a 4-column grid for a clean, modern button layout
-    ctrl.columnconfigure((0, 1, 2, 3), weight=1)
+    """Creates the 'Process & Manage' frame with all control buttons."""
+    controls_frame = ttk.LabelFrame(parent, text="2. Process & Manage", padding=(10, 5))
+    controls_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
+    controls_frame.columnconfigure((0, 1, 2, 3), weight=1)
 
-    # Main START button
-    app.process_btn = ttk.Button(ctrl, text=" START", image=app.start_icon, compound="left", command=app.start_processing, style="Red.TButton")
-    app.process_btn.grid(row=0, column=0, columnspan=4, sticky="ew", pady=2, ipady=5)
+    app.start_btn = ttk.Button(controls_frame, text="START", command=app.start_processing, style="Accent.TButton")
+    app.start_btn.grid(row=0, column=0, columnspan=4, sticky="ew", padx=5, pady=5)
 
-    # Row of processing controls
-    app.pause_btn = ttk.Button(ctrl, text=" Pause", image=app.pause_icon, compound="left", command=app.toggle_pause, state=tk.DISABLED)
-    app.pause_btn.grid(row=1, column=0, sticky="ew", pady=2)
-    app.stop_btn = ttk.Button(ctrl, text=" Stop", image=app.stop_icon, compound="left", command=app.stop_processing, state=tk.DISABLED)
-    app.stop_btn.grid(row=1, column=1, sticky="ew", pady=2)
-    app.rerun_btn = ttk.Button(ctrl, text=" Re-run Flagged", image=app.rerun_icon, compound="left", command=app.rerun_flagged_job, state=tk.DISABLED)
-    app.rerun_btn.grid(row=1, column=2, sticky="ew", pady=2)
-    app.open_result_btn = ttk.Button(ctrl, text=" Open Result", image=app.open_icon, compound="left", command=app.open_result, state=tk.DISABLED)
-    app.open_result_btn.grid(row=1, column=3, sticky="ew", pady=2)
-    
-    # Row of application management controls
-    app.review_btn = ttk.Button(ctrl, text=" Patterns", image=app.patterns_icon, compound="left", command=app.open_pattern_manager)
-    app.review_btn.grid(row=2, column=0, sticky="ew", pady=2)
-    
-    app.fullscreen_btn = ttk.Button(ctrl, text=" Fullscreen", image=app.fullscreen_icon, compound="left", command=app.toggle_fullscreen)
-    app.fullscreen_btn.grid(row=2, column=1, sticky="ew", pady=2)
-    
-    app.exit_btn = ttk.Button(ctrl, text=" Exit", image=app.exit_icon, compound="left", command=app.on_closing)
-    app.exit_btn.grid(row=2, column=3, sticky="ew", pady=2)
+    app.pause_btn = ttk.Button(controls_frame, text="Pause", command=app.toggle_pause, state=tk.DISABLED)
+    app.pause_btn.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
+
+    app.stop_btn = ttk.Button(controls_frame, text="Stop", command=app.stop_processing, state=tk.DISABLED)
+    app.stop_btn.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
+
+    app.rerun_btn = ttk.Button(controls_frame, text="Re-run Flagged", command=lambda: app.start_processing(is_rerun=True))
+    app.rerun_btn.grid(row=1, column=2, sticky="ew", padx=5, pady=5)
+    ToolTip(app.rerun_btn, "Process only the files in the 'needs_review' folder.")
+
+    app.open_result_btn = ttk.Button(controls_frame, text="Open Result", command=app.open_result_file, state=tk.DISABLED)
+    app.open_result_btn.grid(row=1, column=3, sticky="ew", padx=5, pady=5)
+    ToolTip(app.open_result_btn, "Open the generated Excel report.")
+
+    app.patterns_btn = ttk.Button(controls_frame, text="Patterns", command=app.open_review_tool)
+    app.patterns_btn.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
+    ToolTip(app.patterns_btn, "Modify the search patterns for data extraction.")
+
+    app.fullscreen_btn = ttk.Button(controls_frame, text="Fullscreen", command=app.toggle_fullscreen)
+    app.fullscreen_btn.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
+
+    app.exit_btn = ttk.Button(controls_frame, text="Exit", command=app.on_closing)
+    app.exit_btn.grid(row=2, column=3, sticky="ew", padx=5, pady=5)
 
 def create_status_and_log_section(parent, app):
-    """Creates the detailed feedback section with status, progress, counters, and logs."""
-    stat = ttk.LabelFrame(parent, text="3. Status & Logs", padding=10)
-    stat.grid(row=2, column=0, sticky="nsew", pady=5)
-    stat.columnconfigure(0, weight=1)
-    stat.rowconfigure(4, weight=1) # Allow the log section to expand
+    """Creates the 'Status & Logs' frame."""
+    status_frame = ttk.LabelFrame(parent, text="3. Status & Logs", padding=(10, 5))
+    status_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=5)
+    status_frame.columnconfigure(0, weight=1)
+    
+    # Progress Bar
+    app.progress_bar = ttk.Progressbar(status_frame, variable=app.progress_value, mode='determinate')
+    app.progress_bar.grid(row=0, column=0, columnspan=5, sticky="ew", padx=5, pady=5)
+    
+    # Status Label
+    ttk.Label(status_frame, text="●", foreground="green", font=("Segoe UI", 12)).grid(row=1, column=0, sticky="w", padx=(5,0))
+    app.status_label = ttk.Label(status_frame, textvariable=app.status_current_file)
+    app.status_label.grid(row=1, column=1, sticky="w")
+    
+    # Counters
+    counter_frame = ttk.Frame(status_frame)
+    counter_frame.grid(row=1, column=4, sticky="e")
+    ttk.Label(counter_frame, text="Pass:").pack(side="left", padx=(10, 2))
+    ttk.Label(counter_frame, textvariable=app.pass_count).pack(side="left")
+    ttk.Label(counter_frame, text="Fail:").pack(side="left", padx=(10, 2))
+    ttk.Label(counter_frame, textvariable=app.fail_count).pack(side="left")
+    ttk.Label(counter_frame, text="Review:").pack(side="left", padx=(10, 2))
+    ttk.Label(counter_frame, textvariable=app.review_count).pack(side="left")
+    ttk.Label(counter_frame, text="OCR:").pack(side="left", padx=(10, 2))
+    ttk.Label(counter_frame, textvariable=app.ocr_count).pack(side="left")
 
-    # Status bar with LED indicator
-    app.status_frame = ttk.Frame(stat, style="Status.TFrame", padding=5)
-    app.status_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=2)
-    app.status_frame.columnconfigure(1, weight=1)
-    app.led_label = ttk.Label(app.status_frame, textvariable=app.led_status_var, style="LED.TLabel")
-    app.led_label.grid(row=0, column=0, sticky="w")
-    ttk.Label(app.status_frame, textvariable=app.status_current_file, style="Status.TLabel").grid(row=0, column=1, sticky="ew", padx=5)
-
-    # Progress bar and time remaining
-    prog_frame = ttk.Frame(stat)
-    prog_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=(5,10))
-    prog_frame.columnconfigure(0, weight=1)
-    app.progress_bar = ttk.Progressbar(prog_frame, variable=app.progress_value, style="Blue.Horizontal.TProgressbar")
-    app.progress_bar.grid(row=0, column=0, sticky="ew")
-    ttk.Label(prog_frame, textvariable=app.time_remaining_var).grid(row=0, column=1, sticky="e", padx=10)
-
-    # Summary counters
-    sum_frame = ttk.Frame(stat)
-    sum_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=2)
-    counters = [("Pass:", app.count_pass, "Green"), ("Fail:", app.count_fail, "Red"), ("Review:", app.count_review, "Orange"), ("OCR:", app.count_ocr, "Blue")]
-    for i, (text, var, color) in enumerate(counters):
-        ttk.Label(sum_frame, text=text, style="Status.Header.TLabel").pack(side="left", padx=(15, 2))
-        ttk.Label(sum_frame, textvariable=var, style=f"Count.{color}.TLabel").pack(side="left")
-
-    # List of files needing review
-    rev_frame = ttk.Frame(stat)
-    rev_frame.grid(row=3, column=0, sticky="nsew", padx=5, pady=2)
-    rev_frame.rowconfigure(1, weight=1)
-    rev_frame.columnconfigure(0, weight=1)
-    ttk.Label(rev_frame, text="Files to Review:", style="Status.Header.TLabel").grid(row=0, column=0, sticky="w")
-    app.review_file_btn = ttk.Button(rev_frame, text="Review Selected", command=app.open_review_for_selected_file, state=tk.DISABLED)
-    app.review_file_btn.grid(row=0, column=1, sticky="e")
-    app.review_tree = ttk.Treeview(rev_frame, columns=('file'), show='headings', height=4)
-    app.review_tree.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=2)
-    app.review_tree.heading('file', text='File Name')
-    app.review_tree.bind("<<TreeviewSelect>>", lambda e: app.review_file_btn.config(state=tk.NORMAL if app.review_tree.selection() else tk.DISABLED))
-
-    # Main log text area
-    log_frame = ttk.Frame(stat)
-    log_frame.grid(row=4, column=0, sticky="nsew", padx=5, pady=(10,2))
-    log_frame.rowconfigure(0, weight=1)
-    log_frame.columnconfigure(0, weight=1)
-    app.log_text = tk.Text(log_frame, height=8, wrap=tk.WORD, state=tk.DISABLED, relief="solid", borderwidth=1, font=("Consolas", 9))
-    app.log_text.grid(row=0, column=0, sticky="nsew")
-    log_scroll = ttk.Scrollbar(log_frame, command=app.log_text.yview)
-    log_scroll.grid(row=0, column=1, sticky="ns")
-    app.log_text.config(yscrollcommand=log_scroll.set)
+def create_review_section(parent, app):
+    """Creates the 'Files to Review' listbox."""
+    review_frame = ttk.LabelFrame(parent, text="Files to Review", padding=(10, 5))
+    review_frame.grid(row=4, column=0, sticky="nsew", padx=10, pady=5)
+    review_frame.columnconfigure(0, weight=1)
+    review_frame.rowconfigure(0, weight=1)
+    
+    app.review_listbox = tk.Listbox(review_frame, listvariable=app.review_files, selectmode=tk.SINGLE)
+    app.review_listbox.grid(row=0, column=0, sticky="nsew")
+    
+    scrollbar = ttk.Scrollbar(review_frame, orient="vertical", command=app.review_listbox.yview)
+    scrollbar.grid(row=0, column=1, sticky="ns")
+    app.review_listbox.config(yscrollcommand=scrollbar.set)
+    
+    review_btn = ttk.Button(review_frame, text="Review Selected", command=app.review_selected_file)
+    review_btn.grid(row=1, column=0, columnspan=2, sticky="e", pady=5)
+    ToolTip(review_btn, "Open the selected file in the pattern editor.")
